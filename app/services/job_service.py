@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.models.tracking_job import TrackingJob
-
+from app.models.user import User
 
 class InvalidJobTransition(Exception):
     pass
@@ -34,5 +34,20 @@ def change_job_status(
 
     db.commit()
     db.refresh(job)
+
+    return job
+
+def get_job_for_user(
+    db: Session,
+    job_id: int,
+    user: User,
+) -> TrackingJob:
+    job = db.get(TrackingJob, job_id)
+
+    if job is None:
+        raise ValueError("Job not found")
+
+    if user.role != "ADMIN" and job.user_id != user.id:
+        raise PermissionError("You do not have access to this job")
 
     return job

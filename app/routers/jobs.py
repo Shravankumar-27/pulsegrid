@@ -11,6 +11,10 @@ from app.schemas.tracking_job import (
     TrackingJobUpdate,
 )
 
+from app.services.job_service import (
+    InvalidJobTransition,
+    change_job_status,
+)
 
 router = APIRouter(
     prefix="/api/v1/jobs",
@@ -111,6 +115,117 @@ def update_job(
 
     db.commit()
     db.refresh(job)
+
+    return job
+
+@router.post("/{job_id}/start", response_model=TrackingJobResponse)
+def start_job(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    job = db.get(TrackingJob, job_id)
+
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if not can_manage_job(current_user, job):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to modify this job",
+        )
+
+    try:
+        change_job_status(db, job, "RUNNING")
+    except InvalidJobTransition as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=str(exc),
+        )
+
+    return job
+
+
+@router.post("/{job_id}/pause", response_model=TrackingJobResponse)
+def pause_job(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    job = db.get(TrackingJob, job_id)
+
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if not can_manage_job(current_user, job):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to modify this job",
+        )
+
+    try:
+        change_job_status(db, job, "PAUSED")
+    except InvalidJobTransition as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=str(exc),
+        )
+
+    return job
+
+
+@router.post("/{job_id}/resume", response_model=TrackingJobResponse)
+def resume_job(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    job = db.get(TrackingJob, job_id)
+
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if not can_manage_job(current_user, job):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to modify this job",
+        )
+
+    try:
+        change_job_status(db, job, "RUNNING")
+    except InvalidJobTransition as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=str(exc),
+        )
+
+    return job
+
+
+@router.post("/{job_id}/stop", response_model=TrackingJobResponse)
+def stop_job(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    job = db.get(TrackingJob, job_id)
+
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if not can_manage_job(current_user, job):
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have permission to modify this job",
+        )
+
+    try:
+        change_job_status(db, job, "STOPPED")
+    except InvalidJobTransition as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=str(exc),
+        )
 
     return job
 

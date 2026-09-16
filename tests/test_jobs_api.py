@@ -502,3 +502,135 @@ def test_inactive_user_cannot_access_jobs(
     assert response.json() == {
         "detail": "User is not active"
     }
+
+# ---------------------------------------------------------
+# LIFECYCLE
+# ---------------------------------------------------------
+
+
+def test_start_job(client, db_session, auth_headers):
+    create_user(db_session, user_id=2)
+
+    job = create_job(
+        db_session,
+        user_id=2,
+        target_name="Start Me",
+    )
+
+    response = client.post(
+        f"/api/v1/jobs/{job.id}/start",
+        headers=auth_headers(2),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "RUNNING"
+
+
+def test_pause_running_job(client, db_session, auth_headers):
+    create_user(db_session, user_id=2)
+
+    job = create_job(
+        db_session,
+        user_id=2,
+        target_name="Pause Me",
+    )
+
+    client.post(
+        f"/api/v1/jobs/{job.id}/start",
+        headers=auth_headers(2),
+    )
+
+    response = client.post(
+        f"/api/v1/jobs/{job.id}/pause",
+        headers=auth_headers(2),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "PAUSED"
+
+
+def test_resume_paused_job(client, db_session, auth_headers):
+    create_user(db_session, user_id=2)
+
+    job = create_job(
+        db_session,
+        user_id=2,
+        target_name="Resume Me",
+    )
+
+    client.post(
+        f"/api/v1/jobs/{job.id}/start",
+        headers=auth_headers(2),
+    )
+
+    client.post(
+        f"/api/v1/jobs/{job.id}/pause",
+        headers=auth_headers(2),
+    )
+
+    response = client.post(
+        f"/api/v1/jobs/{job.id}/resume",
+        headers=auth_headers(2),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "RUNNING"
+
+
+def test_stop_running_job(client, db_session, auth_headers):
+    create_user(db_session, user_id=2)
+
+    job = create_job(
+        db_session,
+        user_id=2,
+        target_name="Stop Me",
+    )
+
+    client.post(
+        f"/api/v1/jobs/{job.id}/start",
+        headers=auth_headers(2),
+    )
+
+    response = client.post(
+        f"/api/v1/jobs/{job.id}/stop",
+        headers=auth_headers(2),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "STOPPED"
+
+def test_user_cannot_start_another_users_job(
+    client,
+    db_session,
+    auth_headers,
+):
+    create_user(db_session, user_id=2)
+    create_user(db_session, user_id=3)
+
+    job = create_job(
+        db_session,
+        user_id=3,
+        target_name="User 3 Job",
+    )
+
+    response = client.post(
+        f"/api/v1/jobs/{job.id}/start",
+        headers=auth_headers(2),
+    )
+
+    assert response.status_code == 403
+
+def test_start_job_requires_authentication(client, db_session):
+    create_user(db_session, user_id=2)
+
+    job = create_job(
+        db_session,
+        user_id=2,
+        target_name="Auth Test",
+    )
+
+    response = client.post(
+        f"/api/v1/jobs/{job.id}/start",
+    )
+
+    assert response.status_code == 401
