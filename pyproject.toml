@@ -1,0 +1,17 @@
+[project]
+name = "pulse-grid"
+version = "0.1.0"
+description = "Cloud-based event monitoring and notification platform"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "sqlalchemy",
+    "psycopg[binary]",
+    "pydantic-settings",
+     "alembic",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
