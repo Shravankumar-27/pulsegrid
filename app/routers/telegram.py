@@ -1,18 +1,10 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_user
 from app.database import get_db
 from app.models.user import User
-from app.services.telegram_commands import (
-    handle_help,
-    handle_job,
-    handle_jobs,
-    handle_pause,
-    handle_resume,
-    handle_start,
-    handle_stop,
-)
+from app.services.telegram_commands import route_command
+from app.services.telegram import send_message
 
 router = APIRouter(
     prefix="/api/v1/telegram",
@@ -49,8 +41,6 @@ async def telegram_webhook(
     )
 
     if pulsegrid_user is None:
-        from app.services.telegram import send_message
-
         await send_message(
             chat_id,
             "You are not authorized to use PulseGrid.",
@@ -58,8 +48,6 @@ async def telegram_webhook(
         return {"ok": True}
 
     if pulsegrid_user.status != "ACTIVE":
-        from app.services.telegram import send_message
-
         await send_message(
             chat_id,
             "Your PulseGrid account is not active.",
@@ -74,56 +62,13 @@ async def telegram_webhook(
     command = parts[0].lower()
     argument = parts[1] if len(parts) > 1 else ""
 
-    if command == "/start":
-        await handle_start(chat_id)
-
-    elif command == "/help":
-        await handle_help(chat_id)
-
-    elif command == "/jobs":
-        await handle_jobs(
-            chat_id,
-            db,
-            pulsegrid_user,
-        )
-
-    elif command == "/job":
-        await handle_job(
-            chat_id,
-            db,
-            pulsegrid_user,
-            argument,
-        )
-
-    elif command == "/stop":
-        await handle_stop(
-            chat_id,
-            db,
-            pulsegrid_user,
-            argument,
-        )
-    elif command == "/pause":
-        await handle_pause(
-            chat_id,
-            db,
-            pulsegrid_user,
-            argument,
-        )
-
-    elif command == "/resume":
-        await handle_resume(
-            chat_id,
-            db,
-            pulsegrid_user,
-            argument,
-        )
-    else:
-        from app.services.telegram import send_message
-
-        await send_message(
-            chat_id,
-            "I don't understand that command.\n"
-            "Use /help to see available commands.",
-        )
+    await route_command(
+        command=command,
+        argument=argument,
+        chat_id=chat_id,
+        db=db,
+        user=pulsegrid_user,
+    )
 
     return {"ok": True}
+

@@ -294,3 +294,62 @@ async def handle_resume(
         chat_id,
         f"Job #{job.id} has been resumed.",
     )
+
+async def route_command(
+    command: str,
+    argument: str,
+    chat_id: int,
+    db: Session,
+    user: User,
+):
+    if command == "/start":
+        await handle_start(chat_id)
+
+    elif command == "/help":
+        await handle_help(chat_id)
+
+    elif command == "/jobs":
+        await handle_jobs(
+            chat_id,
+            db,
+            user,
+        )
+
+    elif command == "/job":
+        await handle_job(
+            chat_id,
+            db,
+            user,
+            argument,
+        )
+
+    elif command == "/stop":
+        await handle_stop(
+            chat_id,
+            db,
+            user,
+            argument,
+        )
+
+    elif command == "/pause":
+        await handle_pause(
+            chat_id,
+            db,
+            user,
+            argument,
+        )
+
+    elif command == "/resume":
+        await handle_resume(
+            chat_id,
+            db,
+            user,
+            argument,
+        )
+
+    else:
+        await send_message(
+            chat_id,
+            "I don't understand that command.\n"
+            "Use /help to see available commands.",
+        )

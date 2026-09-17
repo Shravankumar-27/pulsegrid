@@ -14,6 +14,7 @@ from app.schemas.tracking_job import (
 from app.services.job_service import (
     InvalidJobTransition,
     change_job_status,
+    create_tracking_job,
 )
 
 router = APIRouter(
@@ -28,24 +29,11 @@ def create_job(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    new_job = TrackingJob(
-        user_id=current_user.id,
-        target_name=job.target_name,
-        platform=job.platform,
-        city=job.city,
-        theater=job.theater,
-        target_date=job.target_date,
-        start_at=job.start_at,
-        end_at=job.end_at,
-        poll_interval_seconds=job.poll_interval_seconds,
-        status="PENDING",
-    )
-
-    db.add(new_job)
-    db.commit()
-    db.refresh(new_job)
-
-    return new_job
+    return create_tracking_job(
+        db=db,
+        user=current_user,
+        job_data=job,
+    ) 
 
 @router.get("", response_model=list[TrackingJobResponse])
 def get_jobs(

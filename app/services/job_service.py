@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 
 from app.models.tracking_job import TrackingJob
 from app.models.user import User
-
+from app.schemas.tracking_job import TrackingJobCreate
 class InvalidJobTransition(Exception):
     pass
 
@@ -51,3 +51,27 @@ def get_job_for_user(
         raise PermissionError("You do not have access to this job")
 
     return job
+
+def create_tracking_job(
+    db: Session,
+    user: User,
+    job_data: TrackingJobCreate,
+) -> TrackingJob:
+    new_job = TrackingJob(
+        user_id=user.id,
+        target_name=job_data.target_name,
+        platform=job_data.platform,
+        city=job_data.city,
+        theater=job_data.theater,
+        target_date=job_data.target_date,
+        start_at=job_data.start_at,
+        end_at=job_data.end_at,
+        poll_interval_seconds=job_data.poll_interval_seconds,
+        status="PENDING",
+    )
+
+    db.add(new_job)
+    db.commit()
+    db.refresh(new_job)
+
+    return new_job
