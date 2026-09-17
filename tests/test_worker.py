@@ -6,13 +6,18 @@ from app.worker.runner import (
     complete_expired_jobs,
     get_running_jobs,
     is_job_expired,
+    process_job,
     run_worker_cycle,
+    should_poll,
 )
+import pytest
 
+from app.services.providers.mock import MockProvider
 
 from datetime import date, datetime, timedelta, timezone
 
 from tests.conftest import db_session
+
 def test_get_running_jobs(db_session, monkeypatch):
     running_job = TrackingJob(
         user_id=1,
@@ -131,3 +136,83 @@ def test_run_worker_cycle(monkeypatch):
     assert result == {
         "completed": 3,
     }
+
+@pytest.mark.asyncio
+async def test_mock_provider():
+    provider = MockProvider()
+
+    result = await provider.check(None)
+
+    assert result == {
+        "available": True,
+        "message": "Mock provider check successful",
+    }
+
+def test_should_poll_when_never_checked():
+    job = TrackingJob(
+        last_checked_at=None,
+        poll_interval_seconds=60,
+    )
+
+    assert should_poll(job) is True
+
+def test_should_not_poll_before_interval():
+    job = TrackingJob(
+        last_checked_at=datetime.now(timezone.utc),
+        poll_interval_seconds=60,
+    )
+
+    assert should_poll(job) is False
+
+def test_should_poll_after_interval():
+    job = TrackingJob(
+        last_checked_at=datetime.now(timezone.utc) - timedelta(seconds=61),
+        poll_interval_seconds=60,
+    )
+
+    assert should_poll(job) is True
+
+@pytest.mark.asyncio
+async def test_process_job_polls_job():
+    job = TrackingJob(
+        status="RUNNING",
+        poll_interval_seconds=60,
+        end_at=datetime.now(timezone.utc) + timedelta(hours=1),
+    )
+
+    provider = MockProvider()
+
+    result = await process_job(job, provider)
+
+    assert result["available"] is True
+    assert job.last_checked_at is not None
+
+@pytest.mark.asyncio
+async def test_process_job_skips_when_not_due():
+    job = TrackingJob(
+        status="RUNNING",
+        poll_interval_seconds=60,
+        last_checked_at=datetime.now(timezone.utc),
+        end_at=datetime.now(timezone.utc) + timedelta(hours=1),
+    )
+    
+    provider = MockProvider()
+
+    result = await process_job(job, provider)
+
+    assert result == "skipped"
+
+@pytest.mark.asyncio
+async def test_process_job_completes_expired_job():
+    job = TrackingJob(
+        status="RUNNING",
+        poll_interval_seconds=60,
+        end_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+    )
+
+    provider = MockProvider()
+
+    result = await process_job(job, provider)
+
+    assert result == "completed"
+    assert job.status == "COMPLETED"
