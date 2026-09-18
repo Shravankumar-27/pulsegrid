@@ -1,9 +1,11 @@
 import pytest
 
 from app.services.telegram_commands import (
+    handle_delete,
     handle_track,
     parse_track_command,
     route_command,
+    parse_command,
 )
 
 @pytest.mark.asyncio
@@ -311,3 +313,257 @@ async def test_route_track_command(monkeypatch):
         "21:00\n"
         "60"
     )
+
+@pytest.mark.asyncio
+async def test_handle_delete_requires_confirmation(monkeypatch):
+    sent_messages = []
+
+    async def fake_send_message(chat_id, message):
+        sent_messages.append(message)
+
+    def fake_get_job_for_user(db, job_id, user):
+        return type(
+            "FakeJob",
+            (),
+            {
+                "id": 12,
+                "target_name": "Panja",
+                "theater": "AMB Cinemas",
+            },
+        )()
+
+    deleted = {}
+
+    def fake_delete_tracking_job(db, job_id, user):
+        deleted["job_id"] = job_id
+        deleted["user"] = user
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.send_message",
+        fake_send_message,
+    )
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.get_job_for_user",
+        fake_get_job_for_user,
+    )
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.delete_tracking_job",
+        fake_delete_tracking_job,
+    )
+
+    user = object()
+
+    await handle_delete(
+        chat_id=123,
+        db=object(),
+        user=user,
+        argument="12",
+    )
+
+    assert "job_id" not in deleted
+    assert len(sent_messages) == 1
+    assert "#12" in sent_messages[0]
+    assert "confirm" in sent_messages[0].lower()
+
+@pytest.mark.asyncio
+async def test_handle_delete_rejects_invalid_id(monkeypatch):
+    sent_messages = []
+
+    async def fake_send_message(chat_id, message):
+        sent_messages.append(message)
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.send_message",
+        fake_send_message,
+    )
+
+    await handle_delete(
+        chat_id=123,
+        db=object(),
+        user=object(),
+        argument="abc",
+    )
+
+    assert len(sent_messages) == 1
+    assert "must be a number" in sent_messages[0]
+
+@pytest.mark.asyncio
+async def test_handle_delete_not_found(monkeypatch):
+    sent_messages = []
+
+    async def fake_send_message(chat_id, message):
+        sent_messages.append(message)
+
+    def fake_get_job_for_user(db, job_id, user):
+        raise ValueError("Job not found")
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.send_message",
+        fake_send_message,
+    )
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.get_job_for_user",
+        fake_get_job_for_user,
+    )
+
+    await handle_delete(
+        chat_id=123,
+        db=object(),
+        user=object(),
+        argument="999",
+    )
+
+    assert sent_messages == [
+        "❌ Job not found.",
+    ]
+
+@pytest.mark.asyncio
+async def test_handle_delete_requires_confirmation(monkeypatch):
+    sent_messages = []
+
+    async def fake_send_message(chat_id, message):
+        sent_messages.append(message)
+
+    def fake_get_job_for_user(db, job_id, user):
+        return type(
+            "FakeJob",
+            (),
+            {
+                "id": 12,
+                "target_name": "Panja",
+                "theater": "AMB Cinemas",
+            },
+        )()
+
+    deleted = {}
+
+    def fake_delete_tracking_job(db, job_id, user):
+        deleted["job_id"] = job_id
+        deleted["user"] = user
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.send_message",
+        fake_send_message,
+    )
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.get_job_for_user",
+        fake_get_job_for_user,
+    )
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.delete_tracking_job",
+        fake_delete_tracking_job,
+    )
+
+    user = object()
+
+    await handle_delete(
+        chat_id=123,
+        db=object(),
+        user=user,
+        argument="12",
+    )
+
+    assert "job_id" not in deleted
+    assert len(sent_messages) == 1
+    assert "#12" in sent_messages[0]
+    assert "confirm" in sent_messages[0].lower()
+
+@pytest.mark.asyncio
+async def test_handle_delete_with_confirmation(monkeypatch):
+    sent_messages = []
+
+    async def fake_send_message(chat_id, message):
+        sent_messages.append(message)
+
+    def fake_get_job_for_user(db, job_id, user):
+        return type(
+            "FakeJob",
+            (),
+            {
+                "id": 12,
+                "target_name": "Panja",
+                "theater": "AMB Cinemas",
+            },
+        )()
+
+    deleted = {}
+
+    def fake_delete_tracking_job(db, job_id, user):
+        deleted["job_id"] = job_id
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.send_message",
+        fake_send_message,
+    )
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.get_job_for_user",
+        fake_get_job_for_user,
+    )
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.delete_tracking_job",
+        fake_delete_tracking_job,
+    )
+
+    await handle_delete(
+        chat_id=123,
+        db=object(),
+        user=object(),
+        argument="12 confirm",
+    )
+
+    assert deleted["job_id"] == 12
+    assert len(sent_messages) == 1
+    assert "deleted" in sent_messages[0].lower()
+
+def test_parse_command_without_argument():
+    command, argument = parse_command("/jobs")
+
+    assert command == "/jobs"
+    assert argument == ""
+
+def test_parse_command_with_argument():
+    command, argument = parse_command("/job 12")
+
+    assert command == "/job"
+    assert argument == "12"
+
+def test_parse_command_with_multiline_argument():
+    text = (
+        "/track\n"
+        "Panja\n"
+        "BookMyShow\n"
+        "Hyderabad\n"
+        "AMB Cinemas\n"
+        "2026-09-20\n"
+        "18:00\n"
+        "21:00\n"
+        "60"
+    )
+
+    command, argument = parse_command(text)
+
+    assert command == "/track"
+
+    assert argument == (
+        "Panja\n"
+        "BookMyShow\n"
+        "Hyderabad\n"
+        "AMB Cinemas\n"
+        "2026-09-20\n"
+        "18:00\n"
+        "21:00\n"
+        "60"
+    )
+
+def test_parse_command_empty_text():
+    command, argument = parse_command("")
+
+    assert command == ""
+    assert argument == ""

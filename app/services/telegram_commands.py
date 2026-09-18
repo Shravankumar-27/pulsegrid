@@ -8,9 +8,11 @@ from app.services.telegram import send_message
 from app.services.job_service import (
     InvalidJobTransition,
     change_job_status,
+    create_tracking_job,
+    delete_tracking_job,
+    get_job_for_user,
 )
 from app.schemas.tracking_job import TrackingJobCreate
-from app.services.job_service import create_tracking_job
 
 def parse_track_command(argument: str) -> TrackingJobCreate:
     fields = [
@@ -158,6 +160,7 @@ async def handle_help(chat_id: int):
         "/stop <id> - Stop a job\n"
         "/pause <id> - Pause a job\n"
         "/track -Create a new tracking job\n"
+        "/delete <id> - Delete a tracking job\n"
         "/resume <id> - Resume a job",
     )
 
@@ -483,10 +486,98 @@ async def route_command(
             user,
             argument,
         )
-
+    elif command == "/delete":
+        await handle_delete(
+            chat_id,
+            db,
+            user,
+            argument,
+        )
     else:
         await send_message(
             chat_id,
             "I don't understand that command.\n"
             "Use /help to see available commands.",
         )
+
+async def handle_delete(
+    chat_id: int,
+    db: Session,
+    user: User,
+    argument: str,
+):
+    parts = argument.strip().split()
+
+    if not parts:
+        await send_message(
+            chat_id,
+            "Usage:\n"
+            "/delete <job_id>\n\n"
+            "Example:\n"
+            "/delete 12",
+        )
+        return
+
+    try:
+        job_id = int(parts[0])
+    except ValueError:
+        await send_message(
+            chat_id,
+            "❌ Job ID must be a number.",
+        )
+        return
+
+    try:
+        job = get_job_for_user(
+            db=db,
+            job_id=job_id,
+            user=user,
+        )
+    except ValueError:
+        await send_message(
+            chat_id,
+            "❌ Job not found.",
+        )
+        return
+    except PermissionError:
+        await send_message(
+            chat_id,
+            "❌ You do not have access to this job.",
+        )
+        return
+
+    if len(parts) < 2 or parts[1].lower() != "confirm":
+        await send_message(
+            chat_id,
+            f"⚠️ Delete tracking job #{job.id}?\n\n"
+            f"Target: {job.target_name}\n"
+            f"Theater: {job.theater}\n\n"
+            f"To confirm, send:\n"
+            f"/delete {job.id} confirm",
+        )
+        return
+
+    target_name = job.target_name
+
+    delete_tracking_job(
+        db=db,
+        job_id=job.id,
+        user=user,
+    )
+
+    await send_message(
+        chat_id,
+        f"🗑️ Tracking job #{job.id} deleted.\n"
+        f"Target: {target_name}",
+    )
+
+def parse_command(text: str) -> tuple[str, str]:
+    parts = text.strip().split(maxsplit=1)
+
+    if not parts:
+        return "", ""
+
+    command = parts[0].lower()
+    argument = parts[1] if len(parts) > 1 else ""
+
+    return command, argument

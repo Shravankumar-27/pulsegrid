@@ -75,3 +75,17 @@ def create_tracking_job(
     db.refresh(new_job)
 
     return new_job
+
+def delete_tracking_job(
+    db: Session,
+    job_id: int,
+    user: User,
+) -> None:
+    job = get_job_for_user(
+        db=db,
+        job_id=job_id,
+        user=user,
+    )
+
+    db.delete(job)
+    db.commit()

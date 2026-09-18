@@ -3,7 +3,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
-from app.services.telegram_commands import route_command
+from app.services.telegram_commands import (
+    parse_command,
+    route_command,
+)
 from app.services.telegram import send_message
 
 router = APIRouter(
@@ -57,10 +60,7 @@ async def telegram_webhook(
     if not text:
         return {"ok": True}
 
-    parts = text.strip().split(maxsplit=1)
-
-    command = parts[0].lower()
-    argument = parts[1] if len(parts) > 1 else ""
+    command, argument = parse_command(text)
 
     await route_command(
         command=command,
