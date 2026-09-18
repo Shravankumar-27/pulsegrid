@@ -162,6 +162,7 @@ async def handle_help(chat_id: int):
         "/track -Create a new tracking job\n"
         "/delete <id> - Delete a tracking job\n"
         "/resume <id> - Resume a job",
+        "/status - Show tracking summary\n"
     )
 
 
@@ -493,6 +494,12 @@ async def route_command(
             user,
             argument,
         )
+    elif command == "/status":
+        await handle_status(
+            chat_id,
+            db,
+            user,
+        )
     else:
         await send_message(
             chat_id,
@@ -581,3 +588,40 @@ def parse_command(text: str) -> tuple[str, str]:
     argument = parts[1] if len(parts) > 1 else ""
 
     return command, argument
+
+async def handle_status(
+    chat_id: int,
+    db: Session,
+    user: User,
+):
+    query = select(TrackingJob)
+
+    if user.role != "ADMIN":
+        query = query.where(
+            TrackingJob.user_id == user.id
+        )
+
+    jobs = db.execute(query).scalars().all()
+
+    counts = {
+        "PENDING": 0,
+        "RUNNING": 0,
+        "PAUSED": 0,
+        "COMPLETED": 0,
+        "STOPPED": 0,
+    }
+
+    for job in jobs:
+        if job.status in counts:
+            counts[job.status] += 1
+
+    await send_message(
+        chat_id,
+        "📊 PulseGrid Status\n\n"
+        f"Total jobs: {len(jobs)}\n"
+        f"🟡 Pending: {counts['PENDING']}\n"
+        f"🟢 Running: {counts['RUNNING']}\n"
+        f"⏸️ Paused: {counts['PAUSED']}\n"
+        f"✅ Completed: {counts['COMPLETED']}\n"
+        f"🛑 Stopped: {counts['STOPPED']}",
+    )

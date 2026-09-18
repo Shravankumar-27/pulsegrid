@@ -2,6 +2,7 @@ import pytest
 
 from app.services.telegram_commands import (
     handle_delete,
+    handle_status,
     handle_track,
     parse_track_command,
     route_command,
@@ -567,3 +568,115 @@ def test_parse_command_empty_text():
 
     assert command == ""
     assert argument == ""
+
+@pytest.mark.asyncio
+async def test_handle_status_for_user(monkeypatch):
+    sent_messages = []
+
+    async def fake_send_message(chat_id, message):
+        sent_messages.append(message)
+
+    class FakeJob:
+        def __init__(self, status):
+            self.status = status
+            self.user_id = 10
+
+    class FakeResult:
+        def scalars(self):
+            return self
+
+        def all(self):
+            return [
+                FakeJob("RUNNING"),
+                FakeJob("RUNNING"),
+                FakeJob("PAUSED"),
+                FakeJob("COMPLETED"),
+            ]
+
+    class FakeDB:
+        def execute(self, query):
+            return FakeResult()
+
+    user = type(
+        "FakeUser",
+        (),
+        {
+            "id": 10,
+            "role": "USER",
+        },
+    )()
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.send_message",
+        fake_send_message,
+    )
+
+    await handle_status(
+        chat_id=123,
+        db=FakeDB(),
+        user=user,
+    )
+
+    assert len(sent_messages) == 1
+
+    message = sent_messages[0]
+
+    assert "Total jobs: 4" in message
+    assert "🟢 Running: 2" in message
+    assert "⏸️ Paused: 1" in message
+    assert "✅ Completed: 1" in message
+    assert "🛑 Stopped: 0" in message
+
+@pytest.mark.asyncio
+async def test_route_status_command(monkeypatch):
+    captured = {}
+
+    async def fake_handle_status(chat_id, db, user):
+        captured["chat_id"] = chat_id
+        captured["db"] = db
+        captured["user"] = user
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.handle_status",
+        fake_handle_status,
+    )
+
+    db = object()
+    user = object()
+
+    await route_command(
+        command="/status",
+        argument="",
+        chat_id=123,
+        db=db,
+        user=user,
+    )
+
+    assert captured["chat_id"] == 123
+    assert captured["db"] is db
+    assert captured["user"] is user
+
+def test_parse_command_normalizes_whitespace():
+    command, argument = parse_command(
+        "   /STATUS   "
+    )
+
+    assert command == "/status"
+    assert argument == ""
+
+def test_parse_command_preserves_multiline_argument():
+    command, argument = parse_command(
+        "  /track  \n"
+        "Panja\n"
+        "BookMyShow\n"
+        "Hyderabad\n"
+        "AMB Cinemas\n"
+        "2026-09-20\n"
+        "18:00\n"
+        "21:00\n"
+        "60"
+    )
+
+    assert command == "/track"
+    assert argument.startswith("Panja\n")
+    assert argument.endswith("60")
