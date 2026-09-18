@@ -1,5 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from datetime import date, datetime, time, timezone
 
 from app.models.tracking_job import TrackingJob
 from app.models.user import User
@@ -8,7 +9,135 @@ from app.services.job_service import (
     InvalidJobTransition,
     change_job_status,
 )
+from app.schemas.tracking_job import TrackingJobCreate
+from app.services.job_service import create_tracking_job
 
+def parse_track_command(argument: str) -> TrackingJobCreate:
+    fields = [
+        field.strip()
+        for field in argument.splitlines()
+        if field.strip()
+    ]
+
+    if len(fields) != 8:
+        raise ValueError(
+            "Usage:\n"
+            "/track\n"
+            "<target>\n"
+            "<platform>\n"
+            "<city>\n"
+            "<theater>\n"
+            "<date>\n"
+            "<start time>\n"
+            "<end time>\n"
+            "<poll interval>"
+        )
+
+    (
+        target_name,
+        platform,
+        city,
+        theater,
+        target_date,
+        start_time,
+        end_time,
+        poll_interval,
+    ) = fields
+
+    try:
+        parsed_date = date.fromisoformat(target_date)
+
+        parsed_start = datetime.combine(
+            parsed_date,
+            time.fromisoformat(start_time),
+            tzinfo=timezone.utc,
+        )
+
+        parsed_end = datetime.combine(
+            parsed_date,
+            time.fromisoformat(end_time),
+            tzinfo=timezone.utc,
+        )
+
+        parsed_poll_interval = int(poll_interval)
+
+    except ValueError as exc:
+        raise ValueError(
+            "Invalid date, time, or poll interval.\n"
+            "Use:\n"
+            "Date: YYYY-MM-DD\n"
+            "Time: HH:MM\n"
+            "Poll interval: seconds"
+        ) from exc
+
+    return TrackingJobCreate(
+        target_name=target_name,
+        platform=platform,
+        city=city,
+        theater=theater,
+        target_date=parsed_date,
+        start_at=parsed_start,
+        end_at=parsed_end,
+        poll_interval_seconds=parsed_poll_interval,
+    )
+
+async def handle_track(
+    chat_id: int,
+    db: Session,
+    user: User,
+    argument: str,
+):
+    if not argument.strip():
+        await send_message(
+            chat_id,
+            "Usage:\n\n"
+            "/track\n"
+            "Target\n"
+            "Platform\n"
+            "City\n"
+            "Theater\n"
+            "YYYY-MM-DD\n"
+            "HH:MM\n"
+            "HH:MM\n"
+            "Poll interval in seconds",
+        )
+        return
+
+    try:
+        job_data = parse_track_command(argument)
+    except ValueError as exc:
+        await send_message(
+            chat_id,
+            f"❌ {exc}",
+        )
+        return
+
+    try:
+        job = create_tracking_job(
+            db=db,
+            user=user,
+            job_data=job_data,
+        )
+    except Exception:
+        await send_message(
+            chat_id,
+            "❌ Failed to create tracking job.",
+        )
+        return
+
+    await send_message(
+        chat_id,
+        f"✅ Tracking job #{job.id} created!\n\n"
+        f"🎬 Target: {job.target_name}\n"
+        f"📺 Platform: {job.platform}\n"
+        f"📍 City: {job.city}\n"
+        f"🏢 Theater: {job.theater}\n"
+        f"📅 Date: {job.target_date}\n"
+        f"⏰ {job.start_at.strftime('%H:%M')} - "
+        f"{job.end_at.strftime('%H:%M')}\n"
+        f"🔄 Poll interval: {job.poll_interval_seconds}s\n"
+        f"📌 Status: {job.status}",
+    )
 async def handle_start(chat_id: int):
     await send_message(
         chat_id,
@@ -28,6 +157,7 @@ async def handle_help(chat_id: int):
         "/job <id> - View job details\n"
         "/stop <id> - Stop a job\n"
         "/pause <id> - Pause a job\n"
+        "/track -Create a new tracking job\n"
         "/resume <id> - Resume a job",
     )
 
@@ -341,6 +471,13 @@ async def route_command(
 
     elif command == "/resume":
         await handle_resume(
+            chat_id,
+            db,
+            user,
+            argument,
+        )
+    elif command == "/track":
+        await handle_track(
             chat_id,
             db,
             user,

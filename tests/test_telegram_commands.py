@@ -1,7 +1,10 @@
 import pytest
 
-from app.services.telegram_commands import route_command
-
+from app.services.telegram_commands import (
+    handle_track,
+    parse_track_command,
+    route_command,
+)
 
 @pytest.mark.asyncio
 async def test_route_start(monkeypatch, db_session):
@@ -112,3 +115,199 @@ async def test_route_unknown_command(monkeypatch, db_session):
     assert called["chat_id"] == 12345
     assert "don't understand" in called["message"]
     assert "/help" in called["message"]
+
+def test_parse_track_command():
+    result = parse_track_command(
+        "Panja\n"
+        "BookMyShow\n"
+        "Hyderabad\n"
+        "AMB Cinemas\n"
+        "2026-09-20\n"
+        "18:00\n"
+        "21:00\n"
+        "60"
+    )
+
+    assert result.target_name == "Panja"
+    assert result.platform == "BookMyShow"
+    assert result.city == "Hyderabad"
+    assert result.theater == "AMB Cinemas"
+    assert result.target_date.isoformat() == "2026-09-20"
+    assert result.poll_interval_seconds == 60
+    assert result.start_at.hour == 18
+    assert result.end_at.hour == 21
+
+
+
+def test_parse_track_command_rejects_wrong_field_count():
+    with pytest.raises(ValueError, match="Usage"):
+        parse_track_command(
+            "Panja\n"
+            "BookMyShow\n"
+            "Hyderabad"
+        )
+
+
+def test_parse_track_command_rejects_invalid_date():
+    with pytest.raises(ValueError, match="Invalid date"):
+        parse_track_command(
+            "Panja \n BookMyShow \n Hyderabad \n AMB Cinemas \n "
+            "20-09-2026 \n 18:00 \n 21:00 \n 60"
+        )
+
+
+def test_parse_track_command_rejects_invalid_time():
+    with pytest.raises(ValueError, match="Invalid date"):
+        parse_track_command(
+            "Panja \n BookMyShow \n Hyderabad \n AMB Cinemas \n "
+            "2026-09-20 \n 25:00 \n 21:00 \n 60"
+        )
+
+
+def test_parse_track_command_rejects_invalid_poll_interval():
+    with pytest.raises(ValueError):
+        parse_track_command(
+            "Panja \n BookMyShow \n Hyderabad \n AMB Cinemas \n "
+            "2026-09-20 \n 18:00 \n 21:00 \n abc"
+        )
+
+@pytest.mark.asyncio
+async def test_handle_track_creates_job(monkeypatch):
+    sent_messages = []
+
+    async def fake_send_message(chat_id, message):
+        sent_messages.append(
+            {
+                "chat_id": chat_id,
+                "message": message,
+            }
+        )
+
+    def fake_create_tracking_job(db, user, job_data):
+        return type(
+            "FakeJob",
+            (),
+            {
+                "id": 12,
+                "target_name": job_data.target_name,
+                "platform": job_data.platform,
+                "city": job_data.city,
+                "theater": job_data.theater,
+                "target_date": job_data.target_date,
+                "start_at": job_data.start_at,
+                "end_at": job_data.end_at,
+                "poll_interval_seconds": job_data.poll_interval_seconds,
+                "status": "PENDING",
+            },
+        )()
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.send_message",
+        fake_send_message,
+    )
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.create_tracking_job",
+        fake_create_tracking_job,
+    )
+
+    await handle_track(
+        chat_id=123,
+        db=object(),
+        user=object(),
+        argument=(
+            "Panja\n"
+            "BookMyShow\n"
+            "Hyderabad\n"
+            "AMB Cinemas\n"
+            "2026-09-20\n"
+            "18:00\n"
+            "21:00\n"
+            "60"
+        ),
+    )
+
+    assert len(sent_messages) == 1
+
+    assert sent_messages[0]["chat_id"] == 123
+    assert "Tracking job #12 created" in sent_messages[0]["message"]
+    assert "Panja" in sent_messages[0]["message"]
+    assert "BookMyShow" in sent_messages[0]["message"]
+    assert "PENDING" in sent_messages[0]["message"]
+
+@pytest.mark.asyncio
+async def test_handle_track_without_argument(monkeypatch):
+    sent_messages = []
+
+    async def fake_send_message(chat_id, message):
+        sent_messages.append(message)
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.send_message",
+        fake_send_message,
+    )
+
+    await handle_track(
+        chat_id=123,
+        db=object(),
+        user=object(),
+        argument="",
+    )
+
+    assert len(sent_messages) == 1
+    assert "Usage" in sent_messages[0]
+
+@pytest.mark.asyncio
+async def test_route_track_command(monkeypatch):
+    captured = {}
+
+    async def fake_handle_track(
+        chat_id,
+        db,
+        user,
+        argument,
+    ):
+        captured["chat_id"] = chat_id
+        captured["db"] = db
+        captured["user"] = user
+        captured["argument"] = argument
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.handle_track",
+        fake_handle_track,
+    )
+
+    db = object()
+    user = object()
+
+    await route_command(
+        command="/track",
+        argument=(
+            "Panja\n"
+            "BookMyShow\n"
+            "Hyderabad\n"
+            "AMB Cinemas\n"
+            "2026-09-20\n"
+            "18:00\n"
+            "21:00\n"
+            "60"
+        ),
+        chat_id=123,
+        db=db,
+        user=user,
+    )
+
+    assert captured["chat_id"] == 123
+    assert captured["db"] is db
+    assert captured["user"] is user
+
+    assert captured["argument"] == (
+        "Panja\n"
+        "BookMyShow\n"
+        "Hyderabad\n"
+        "AMB Cinemas\n"
+        "2026-09-20\n"
+        "18:00\n"
+        "21:00\n"
+        "60"
+    )
