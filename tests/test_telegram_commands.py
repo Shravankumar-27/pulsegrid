@@ -204,6 +204,10 @@ async def test_handle_track_creates_job(monkeypatch):
             },
         )()
 
+    def fake_change_job_status(db, job, new_status):
+        job.status = new_status
+        return job
+
     monkeypatch.setattr(
         "app.services.telegram_commands.send_message",
         fake_send_message,
@@ -212,6 +216,11 @@ async def test_handle_track_creates_job(monkeypatch):
     monkeypatch.setattr(
         "app.services.telegram_commands.create_tracking_job",
         fake_create_tracking_job,
+    )
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.change_job_status",
+        fake_change_job_status,
     )
 
     await handle_track(
@@ -236,7 +245,7 @@ async def test_handle_track_creates_job(monkeypatch):
     assert "Tracking job #12 created" in sent_messages[0]["message"]
     assert "Panja" in sent_messages[0]["message"]
     assert "BookMyShow" in sent_messages[0]["message"]
-    assert "PENDING" in sent_messages[0]["message"]
+    assert "RUNNING" in sent_messages[0]["message"]
 
 @pytest.mark.asyncio
 async def test_handle_track_without_argument(monkeypatch):

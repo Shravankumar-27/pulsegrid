@@ -1082,62 +1082,48 @@ When everything is complete, the conceptual architecture is:
 # 26. Our exact roadmap from TODAY
 
 ```text
-DONE
-  ✅ BMS primary-dynamic API identified (HAR)
-  ✅ Cloudflare bypass via headed Chromium → cf_clearance
-  ✅ Fast retrieval via curl_cffi Chrome TLS impersonation
-  ✅ Parse venue-cards → normalised sessions
-  ✅ BookMyShowProvider.check() → AvailabilityResult
-  ✅ CurlCffiTransport wired as BookMyShowClient default
-  ✅ Worker factory already routes platform=bookmyshow
-  ✅ Session dedupe + Telegram notification path exists
+DONE — BMS MVP monitor
+  ✅ BMS primary-dynamic retrieval (curl_cffi + CF session)
+  ✅ BookMyShowProvider → AvailabilityResult
+  ✅ Worker cycle + continuous run_worker.py loop
+  ✅ Session dedupe with persisted WorkerState
+  ✅ Telegram /track auto-starts RUNNING jobs
+  ✅ Theater "Any" matches all venues
+  ✅ Cities: HYD / Mumbai / Bengaluru / Chennai / Delhi
+  ✅ smoke_bms_monitor.py + bootstrap_bms_session.py
+  ✅ README runbook
 
-YOU ARE HERE
+NEXT (post-MVP)
      │
      ▼
-① End-to-end live worker smoke test
-   (TrackingJob → BookMyShowProvider → notify on new sessions)
+① District provider
      │
      ▼
-② Harden CF session lifecycle
-   (cookie refresh job, backoff on error, no headed browser in CI)
+② Shared PulseGrid Show normalizer
      │
      ▼
-③ Persist AvailabilityState (DB/Redis) across worker restarts
+③ Multi-provider jobs
      │
      ▼
-④ Expand city config beyond Hyderabad
+④ Admin / React dashboard
      │
      ▼
-⑤ Normalize BMS → PulseGrid Show model (shared with District)
+⑤ Docker + cloud deployment
      │
      ▼
-⑥ District provider
-     │
-     ▼
-⑦ Multi-provider monitoring
-     │
-     ▼
-⑧ Dashboard
-     │
-     ▼
-⑨ Docker + cloud deployment
-     │
-     ▼
-⑩ GitHub Actions + production hardening
+⑥ GitHub Actions + production hardening
 ```
 
 ### The most important thing
 
-**BMS retrieval is no longer the blocker.**
+**A working BookMyShow monitor is runnable end-to-end.**
 
 ```text
-✅ BMS has a real structured showtime API
-✅ HAR captured a successful 200 response
-✅ Plain HTTP gets Cloudflare 403 (TLS fingerprint)
-✅ Headed Chromium obtains cf_clearance
-✅ curl_cffi + CF session returns live showtimes
-✅ Provider + worker contracts already accept that data
+bootstrap_bms_session.py  →  cf_clearance
+run_worker.py             →  poll RUNNING jobs
+BookMyShowProvider        →  live showtimes
+Telegram                  →  alert on new sessions
 ```
 
-Next focus: **wire a real TrackingJob through the worker against live BMS**, then harden session/ops. BMS-specific code stays inside the provider package — the PulseGrid core architecture does not change.
+Keep provider-specific code inside `app/services/providers/`. Core worker
+and job APIs stay provider-agnostic.

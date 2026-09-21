@@ -120,6 +120,15 @@ async def handle_track(
             user=user,
             job_data=job_data,
         )
+        # Start monitoring immediately so /track is enough for MVP use.
+        job = change_job_status(db, job, "RUNNING")
+    except InvalidJobTransition:
+        await send_message(
+            chat_id,
+            f"✅ Tracking job #{job.id} created (PENDING).\n"
+            f"Use /resume {job.id} to start monitoring.",
+        )
+        return
     except Exception:
         await send_message(
             chat_id,
@@ -129,7 +138,7 @@ async def handle_track(
 
     await send_message(
         chat_id,
-        f"✅ Tracking job #{job.id} created!\n\n"
+        f"✅ Tracking job #{job.id} created and running!\n\n"
         f"🎬 Target: {job.target_name}\n"
         f"📺 Platform: {job.platform}\n"
         f"📍 City: {job.city}\n"
@@ -138,8 +147,12 @@ async def handle_track(
         f"⏰ {job.start_at.strftime('%H:%M')} - "
         f"{job.end_at.strftime('%H:%M')}\n"
         f"🔄 Poll interval: {job.poll_interval_seconds}s\n"
-        f"📌 Status: {job.status}",
+        f"📌 Status: {job.status}\n\n"
+        f"Tip: for BookMyShow, Target should be the event code "
+        f"(e.g. ET00514261).",
     )
+
+
 async def handle_start(chat_id: int):
     await send_message(
         chat_id,
@@ -155,14 +168,16 @@ async def handle_help(chat_id: int):
         "PulseGrid Commands\n\n"
         "/start - Start using PulseGrid\n"
         "/help - Show available commands\n"
+        "/track - Create and start a tracking job\n"
         "/jobs - View your tracking jobs\n"
         "/job <id> - View job details\n"
-        "/stop <id> - Stop a job\n"
-        "/pause <id> - Pause a job\n"
-        "/track -Create a new tracking job\n"
-        "/delete <id> - Delete a tracking job\n"
-        "/resume <id> - Resume a job",
         "/status - Show tracking summary\n"
+        "/pause <id> - Pause a job\n"
+        "/resume <id> - Resume / start a pending job\n"
+        "/stop <id> - Stop a job\n"
+        "/delete <id> - Delete a tracking job\n\n"
+        "BookMyShow tip: use the event code as Target "
+        "(e.g. ET00514261). Theater can be Any.",
     )
 
 

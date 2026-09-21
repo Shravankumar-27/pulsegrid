@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from app.worker.state import WorkerState
 
 
@@ -28,3 +30,14 @@ def test_state_persists_seen_sessions():
     same_job_state = state.get_job_state(1)
 
     assert "session-1" in same_job_state.seen_session_ids
+
+
+def test_state_round_trips_to_disk(tmp_path: Path):
+    path = tmp_path / "worker_state.json"
+    state = WorkerState(persist_path=path)
+    state.get_job_state(7).mark_seen("s-1")
+    state.get_job_state(7).mark_seen("s-2")
+    state.save()
+
+    restored = WorkerState(persist_path=path)
+    assert restored.get_job_state(7).seen_session_ids == {"s-1", "s-2"}

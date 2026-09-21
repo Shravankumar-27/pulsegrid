@@ -27,6 +27,12 @@ def test_rejects_different_theater():
     assert matches_job(job, session) is False
 
 
+def test_any_theater_matches_all():
+    for theater in ("Any", "ALL", "*", "", "  "):
+        job = make_job(theater)
+        assert matches_job(job, {"cinema": "INOX: GVK One"}) is True
+
+
 def test_matching_sessions():
     job = make_job("PVR")
 

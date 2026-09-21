@@ -134,7 +134,7 @@ async def process_job(
 
     job.last_checked_at = datetime.now(timezone.utc)
 
-    if result.get("available") is True:
+    if result.get("available") is True and notification_service is not None:
         recipient = str(job.user.telegram_user_id)
 
         message = build_notification_message(
@@ -218,7 +218,10 @@ async def run_worker_cycle(
 
         result["checked"] += 1
 
-        if provider_result.get("available") is True:
+        if (
+            provider_result.get("available") is True
+            and notification_service is not None
+        ):
             recipient = str(job.user.telegram_user_id)
 
             message = build_notification_message(

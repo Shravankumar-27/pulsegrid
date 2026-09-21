@@ -1,8 +1,15 @@
+_MATCH_ALL_THEATERS = {"", "any", "all", "*"}
+
+
 def matches_job(job, session: dict) -> bool:
     theater = (job.theater or "").strip().lower()
     cinema = (session.get("cinema") or "").strip().lower()
 
-    if theater and theater not in cinema:
+    # Empty / "Any" / "All" → every venue
+    if theater in _MATCH_ALL_THEATERS:
+        return True
+
+    if theater not in cinema:
         return False
 
     return True
