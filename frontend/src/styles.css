@@ -1,0 +1,293 @@
+:root {
+  --ink: #14201a;
+  --ink-soft: #3a4a42;
+  --paper: #f3f0e8;
+  --paper-2: #e7e2d4;
+  --line: #c8c0ae;
+  --accent: #1f6b4a;
+  --accent-ink: #0d3b28;
+  --danger: #8b2e2e;
+  --warn: #8a6a1f;
+  --ok: #1f6b4a;
+  --muted: #6b736c;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --sans: "Source Sans 3", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  color: var(--ink);
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, #d9e8df 0%, transparent 55%),
+    linear-gradient(180deg, #f7f4ec 0%, var(--paper) 40%, #ebe6d8 100%);
+}
+
+h1 {
+  margin: 0.15rem 0 0;
+  font-size: 1.85rem;
+  letter-spacing: -0.02em;
+}
+
+.eyebrow {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.lede {
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 0.9em;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.error {
+  color: var(--danger);
+  margin: 0.5rem 0;
+}
+
+.error.banner {
+  padding: 0.65rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--line));
+  background: color-mix(in srgb, var(--danger) 8%, white);
+}
+
+button {
+  font-family: var(--sans);
+  font-weight: 600;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: var(--accent-ink);
+  border-color: var(--accent-ink);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.ghost {
+  background: transparent;
+  color: var(--ink);
+}
+
+button.ghost:hover:not(:disabled) {
+  background: var(--paper-2);
+}
+
+button.danger {
+  background: transparent;
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 50%, var(--line));
+}
+
+button.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 10%, white);
+}
+
+/* Login */
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+}
+
+.login-panel {
+  width: min(420px, 100%);
+  padding: 1.75rem;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, white 70%, var(--paper));
+}
+
+.login-form {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 1.25rem;
+}
+
+.login-form label {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+.login-form input {
+  font-family: var(--mono);
+  font-size: 1rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--ink);
+}
+
+.login-form button {
+  margin-top: 0.5rem;
+  padding: 0.7rem 0.85rem;
+}
+
+/* Ops */
+.ops-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3rem;
+}
+
+.ops-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: end;
+  margin: 1.25rem 0;
+}
+
+.filters label {
+  display: grid;
+  gap: 0.3rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+.filters select {
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--ink);
+  min-width: 9rem;
+}
+
+.filter-meta {
+  margin: 0 0 0.2rem auto;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, white 78%, var(--paper));
+}
+
+.jobs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.jobs-table th,
+.jobs-table td {
+  text-align: left;
+  padding: 0.65rem 0.7rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.jobs-table th {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  background: var(--paper-2);
+  white-space: nowrap;
+}
+
+.jobs-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.status {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.status-running {
+  border-color: color-mix(in srgb, var(--ok) 45%, var(--line));
+  color: var(--ok);
+}
+
+.status-paused,
+.status-pending {
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--line));
+  color: var(--warn);
+}
+
+.status-stopped,
+.status-completed {
+  color: var(--muted);
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.row-actions button {
+  font-size: 0.8rem;
+  padding: 0.28rem 0.45rem;
+}
+
+@media (max-width: 720px) {
+  .ops-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .filter-meta {
+    margin-left: 0;
+  }
+}

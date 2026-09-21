@@ -12,6 +12,7 @@ sessions appear or change.
 - BookMyShow live retrieval (`curl_cffi` + Cloudflare session)
 - Continuous worker with session dedupe + Telegram notifications
 - Cities: Hyderabad, Mumbai, Bengaluru, Chennai, Delhi/NCR
+- Admin dashboard (login + job pause/resume/stop/delete)
 
 ## Quick start
 
@@ -79,6 +80,35 @@ Any
 For BookMyShow, **Target must be the event code** (e.g. `ET00514261`), not the movie title.
 For District, Target is an `MV` code (e.g. `MV181196`) or a full District movie URL.
 Theater `Any` matches all venues.
+
+## Admin dashboard
+
+Vite + React ops console for listing and controlling jobs.
+
+Development (API on `:8000`, Vite on `:5173`):
+
+```powershell
+# terminal A
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+
+# terminal B
+cd frontend
+npm install
+npm run dev
+```
+
+Open http://127.0.0.1:5173 — sign in with your Telegram user id.
+
+Production build (served by FastAPI at `/`):
+
+```powershell
+cd frontend
+npm install
+npm run build
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+```
+
+Then open http://127.0.0.1:8000/
 
 ## Docker
 

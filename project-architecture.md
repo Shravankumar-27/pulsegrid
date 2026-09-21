@@ -1096,15 +1096,13 @@ DONE — BMS MVP monitor
 NEXT (post-MVP)
      │
      ▼
-① Admin / React dashboard
-     │
-     ▼
-② Cloud deployment hardening
+① Cloud deployment hardening
 
 DONE recently
   ✅ Shared PulseGrid Show normalizer
   ✅ DistrictProvider (SSR pageProps → sessions)
   ✅ Multi-provider UX (platform allowlist + Telegram tips)
+  ✅ Admin React dashboard (jobs ops)
   ✅ Docker Compose (api + worker + db)
   ✅ GitHub Actions CI (pytest)
 ```

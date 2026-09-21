@@ -21,6 +21,10 @@ scripts/bms_live_response.json
 scripts/bms_curl_cffi_response.json
 *.har
 
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
 # BMS research scratch (not part of runtime)
 app/services/providers/bookmyshow_browser.py
 scripts/bms_profile/
