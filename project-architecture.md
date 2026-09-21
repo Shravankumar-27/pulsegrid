@@ -1096,7 +1096,7 @@ DONE — BMS MVP monitor
 NEXT (post-MVP)
      │
      ▼
-① District provider research + live retrieval   ← placeholder wired
+① District live retrieval   ✅ SSR __NEXT_DATA__ / arrangedSessions
      │
      ▼
 ② Admin / React dashboard
@@ -1109,7 +1109,7 @@ NEXT (post-MVP)
 
 DONE recently
   ✅ Shared PulseGrid Show normalizer
-  ✅ DistrictProvider stub in factory
+  ✅ DistrictProvider (SSR pageProps → sessions)
   ✅ Docker Compose (api + worker + db)
   ✅ GitHub Actions CI (pytest)
 ```

@@ -76,7 +76,9 @@ Any
 60
 ```
 
-For BookMyShow, **Target must be the event code** (e.g. `ET00514261`), not the movie title. Theater `Any` matches all venues.
+For BookMyShow, **Target must be the event code** (e.g. `ET00514261`), not the movie title.
+For District, Target is an `MV` code (e.g. `MV181196`) or a full District movie URL.
+Theater `Any` matches all venues.
 
 ## Docker
 
@@ -110,6 +112,7 @@ Provider + dedupe path (optional Telegram):
 ```powershell
 .\.venv\Scripts\python.exe scripts/smoke_bms_monitor.py ET00514261 --theater Any
 .\.venv\Scripts\python.exe scripts/smoke_bms_monitor.py ET00514261 --notify --chat-id YOUR_CHAT_ID
+.\.venv\Scripts\python.exe scripts/smoke_district_monitor.py MV181196 --city Hyderabad
 ```
 
 ## Architecture
