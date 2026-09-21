@@ -1,0 +1,89 @@
+{
+  "data": {
+    "showtimeWidgets": [
+      {
+        "type": "groupList",
+        "data": [
+          {
+            "type": "venueGroup",
+            "id": "Venue_GROUP_1",
+            "data": [
+              {
+                "type": "venue-card",
+                "additionalData": {
+                  "venueCode": "PVRHYD001",
+                  "venueName": "PVR: Nexus Mall",
+                  "isFnBAvailable": true,
+                  "isMTicketAvailable": true
+                },
+                "showtimesSections": [
+                  {
+                    "showtimes": [
+                      {
+                        "title": "6:30 PM",
+                        "screenAttr": "IMAX 2D",
+                        "styleId": "green-pill",
+                        "additionalData": {
+                          "sessionId": "session-001",
+                          "availStatus": "2",
+                          "showDateCode": "20260921",
+                          "showDateTime": "202609211830",
+                          "showTimeCode": "1830",
+                          "showTime": "6:30 PM",
+                          "attributes": "IMAX"
+                        }
+                      },
+                      {
+                        "title": "9:30 PM",
+                        "screenAttr": "IMAX 2D",
+                        "styleId": "grey-pill",
+                        "additionalData": {
+                          "sessionId": "session-002",
+                          "availStatus": "1",
+                          "showDateCode": "20260921",
+                          "showDateTime": "202609212130",
+                          "showTimeCode": "2130",
+                          "showTime": "9:30 PM",
+                          "attributes": "IMAX"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "venue-card",
+                "additionalData": {
+                  "venueCode": "INOXHYD001",
+                  "venueName": "INOX: GVK One",
+                  "isFnBAvailable": false,
+                  "isMTicketAvailable": true
+                },
+                "showtimesSections": [
+                  {
+                    "showtimes": [
+                      {
+                        "title": "7:00 PM",
+                        "screenAttr": "2D",
+                        "styleId": "green-pill",
+                        "additionalData": {
+                          "sessionId": "session-003",
+                          "availStatus": "3",
+                          "showDateCode": "20260921",
+                          "showDateTime": "202609211900",
+                          "showTimeCode": "1900",
+                          "showTime": "7:00 PM",
+                          "attributes": "2D"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

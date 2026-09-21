@@ -10,3 +10,13 @@ __pycache__/
 .ruff_cache/
 
 .vscode/
+
+# BookMyShow session / browser artifacts
+data/
+scripts/bms_*_profile/
+scripts/bms_session_cookies.json
+scripts/bms_storage_state.json
+scripts/bms_diag_cookies.json
+scripts/bms_live_response.json
+scripts/bms_curl_cffi_response.json
+*.har

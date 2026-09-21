@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 
 from app.database import SessionLocal
 from app.models.tracking_job import TrackingJob
-
+from app.services.providers.factory import get_provider
+from app.services.availability_tracker import get_new_sessions
 
 def get_running_jobs():
     db = SessionLocal()
@@ -68,17 +69,40 @@ def should_poll(job):
 
 
 def build_notification_message(job, result):
-    return (
+    message = (
         f"🎟️ PulseGrid Alert\n\n"
         f"Target: {job.target_name}\n"
         f"Platform: {job.platform}\n"
         f"City: {job.city}\n"
         f"Theater: {job.theater}\n\n"
-        f"{result.get('message', 'Availability detected.')}"
     )
 
+    sessions = result.get("sessions", [])
 
-async def process_job(job, provider, notification_service):
+    if sessions:
+        message += "🎬 New showtime available!\n\n"
+
+        for session in sessions:
+            message += (
+                f"🕐 {session.get('time', 'Unknown time')}\n"
+                f"🎞️ {session.get('format', 'Unknown format')}\n"
+                f"🏢 {session.get('cinema', 'Unknown theater')}\n"
+                f"🆔 {session.get('id', 'Unknown')}\n\n"
+            )
+    else:
+        message += result.get(
+            "message",
+            "Availability detected.",
+        )
+
+    return message.strip()
+
+async def process_job(
+        job,
+        provider,
+        notification_service,
+        worker_state=None,
+    ):
     """
     Process one tracking job.
 
@@ -96,6 +120,17 @@ async def process_job(job, provider, notification_service):
         return "skipped"
 
     result = await provider.check(job)
+
+    if result.get("available") is True and worker_state is not None:
+        state = worker_state.get_job_state(job.id)
+
+        new_sessions = get_new_sessions(
+            result.get("sessions", []),
+            state,
+        )
+
+        result["sessions"] = new_sessions
+        result["available"] = bool(new_sessions)
 
     job.last_checked_at = datetime.now(timezone.utc)
 
@@ -117,8 +152,9 @@ async def process_job(job, provider, notification_service):
 
 async def run_worker_cycle(
     db,
-    provider,
-    notification_service,
+    provider=None,
+    notification_service=None,
+    worker_state=None,
 ):
     """
     Run one complete worker cycle.
@@ -148,6 +184,10 @@ async def run_worker_cycle(
     for job in jobs:
         if is_job_expired(job):
             job.status = "COMPLETED"
+
+            if worker_state is not None:
+                worker_state.clear_job(job.id)
+
             result["completed"] += 1
             continue
 
@@ -155,7 +195,24 @@ async def run_worker_cycle(
             result["skipped"] += 1
             continue
 
-        provider_result = await provider.check(job)
+        job_provider = provider or get_provider(job.platform)
+
+
+        provider_result = await job_provider.check(job)
+
+        if (
+        provider_result.get("available") is True
+        and worker_state is not None):
+
+            state = worker_state.get_job_state(job.id)
+
+            new_sessions = get_new_sessions(
+                provider_result.get("sessions", []),
+                state,
+            )
+
+            provider_result["sessions"] = new_sessions
+            provider_result["available"] = bool(new_sessions)
 
         job.last_checked_at = datetime.now(timezone.utc)
 
@@ -177,5 +234,28 @@ async def run_worker_cycle(
             result["notified"] += 1
 
     db.commit()
+
+    return result
+
+async def process_running_job(
+    job,
+    notification_service,
+    worker_state=None,
+):
+    provider = get_provider(job.platform)
+
+    if worker_state is None:
+        result = await process_job(
+            job,
+            provider,
+            notification_service,
+        )
+    else:
+        result = await process_job(
+            job,
+            provider,
+            notification_service,
+            worker_state=worker_state,
+        )
 
     return result

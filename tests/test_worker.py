@@ -12,9 +12,13 @@ from app.worker.runner import (
     process_job,
     run_worker_cycle,
     should_poll,
+    process_running_job,
 )
 from tests.fakes import FakeNotificationService
 
+from types import SimpleNamespace
+
+from app.worker.state import WorkerState
 
 def create_user(db_session, telegram_user_id=123456789):
     from app.models.user import User
@@ -512,3 +516,356 @@ async def test_multiple_jobs_are_processed_independently(
 
     assert len(notification.sent) == 1
     assert "Due Job" in notification.sent[0]["message"]
+
+
+
+
+@pytest.mark.asyncio
+async def test_process_running_job_uses_provider_factory(monkeypatch):
+    calls = {}
+
+    class FakeProvider:
+        async def check(self, job):
+            calls["job"] = job
+            return {
+                "available": False,
+                "message": "No availability",
+            }
+
+    def fake_get_provider(platform):
+        calls["platform"] = platform
+        return FakeProvider()
+
+    async def fake_process_job(job, provider, notification_service):
+        calls["provider"] = provider
+        return "checked"
+
+    monkeypatch.setattr(
+        "app.worker.runner.get_provider",
+        fake_get_provider,
+    )
+    monkeypatch.setattr(
+        "app.worker.runner.process_job",
+        fake_process_job,
+    )
+
+    job = type("Job", (), {"platform": "bookmyshow"})()
+
+    result = await process_running_job(
+        job,
+        notification_service=None,
+    )
+
+    assert result == "checked"
+    assert calls["platform"] == "bookmyshow"
+    assert isinstance(calls["provider"], FakeProvider)
+
+@pytest.mark.asyncio
+async def test_process_job_notifies_only_new_sessions():
+    from app.models.availability_state import AvailabilityState
+    from app.worker.runner import process_job
+
+    class FakeProvider:
+        async def check(self, job):
+            return {
+                "available": True,
+                "message": "Showtime available",
+                "sessions": [
+                    {
+                        "id": "session-1",
+                        "cinema": "PVR Hyderabad",
+                        "time": "19:30",
+                    }
+                ],
+            }
+
+    class FakeNotificationService:
+        def __init__(self):
+            self.messages = []
+
+        async def send(self, recipient, message):
+            self.messages.append((recipient, message))
+
+    job = SimpleNamespace(
+        id=1,
+        status="RUNNING",
+        end_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        last_checked_at=None,
+        poll_interval_seconds=0,
+        user=SimpleNamespace(telegram_user_id=123),
+        target_name="ET123",
+        platform="bookmyshow",
+        city="Hyderabad",
+        theater="PVR",
+    )
+
+    notifications = FakeNotificationService()
+    state = WorkerState()
+
+    await process_job(
+        job,
+        FakeProvider(),
+        notifications,
+        worker_state=state,
+    )
+
+    await process_job(
+        job,
+        FakeProvider(),
+        notifications,
+        worker_state=state,
+    )
+
+    assert len(notifications.messages) == 1
+
+@pytest.mark.asyncio
+async def test_process_job_notifies_when_new_session_appears():
+    from app.worker.runner import process_job
+
+    class FakeProvider:
+        def __init__(self):
+            self.calls = 0
+
+        async def check(self, job):
+            self.calls += 1
+
+            if self.calls == 1:
+                sessions = [
+                    {
+                        "id": "session-1",
+                        "cinema": "PVR Hyderabad",
+                        "time": "19:30",
+                    }
+                ]
+            else:
+                sessions = [
+                    {
+                        "id": "session-1",
+                        "cinema": "PVR Hyderabad",
+                        "time": "19:30",
+                    },
+                    {
+                        "id": "session-2",
+                        "cinema": "PVR Hyderabad",
+                        "time": "21:30",
+                    },
+                ]
+
+            return {
+                "available": True,
+                "message": "Showtime available",
+                "sessions": sessions,
+            }
+
+    class FakeNotificationService:
+        def __init__(self):
+            self.messages = []
+
+        async def send(self, recipient, message):
+            self.messages.append(message)
+
+    job = SimpleNamespace(
+        id=1,
+        status="RUNNING",
+        end_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        last_checked_at=None,
+        poll_interval_seconds=0,
+        user=SimpleNamespace(telegram_user_id=123),
+        target_name="ET123",
+        platform="bookmyshow",
+        city="Hyderabad",
+        theater="PVR",
+    )
+
+    provider = FakeProvider()
+    notifications = FakeNotificationService()
+    state = WorkerState()
+
+    await process_job(
+        job,
+        provider,
+        notifications,
+        worker_state=state,
+    )
+
+    await process_job(
+        job,
+        provider,
+        notifications,
+        worker_state=state,
+    )
+
+    assert len(notifications.messages) == 2
+    assert "21:30" in notifications.messages[1]
+
+def test_notification_message_contains_session_details():
+    job = SimpleNamespace(
+        target_name="ET123",
+        platform="bookmyshow",
+        city="Hyderabad",
+        theater="PVR",
+    )
+
+    result = {
+        "available": True,
+        "sessions": [
+            {
+                "id": "session-123",
+                "cinema": "PVR Nexus Mall",
+                "time": "19:30",
+                "format": "IMAX",
+            }
+        ],
+    }
+
+    message = build_notification_message(job, result)
+
+    assert "ET123" in message
+    assert "bookmyshow" in message
+    assert "Hyderabad" in message
+    assert "PVR Nexus Mall" in message
+    assert "19:30" in message
+    assert "IMAX" in message
+    assert "session-123" in message
+
+@pytest.mark.asyncio
+async def test_worker_cycle_uses_provider_factory(
+    monkeypatch,
+):
+    from app.services.providers.mock import MockProvider
+
+    calls = []
+
+    class FakeProvider:
+        async def check(self, job):
+            calls.append(job.platform)
+
+            return {
+                "available": False,
+                "message": "No availability",
+                "sessions": [],
+            }
+
+    def fake_get_provider(platform):
+        calls.append(f"factory:{platform}")
+        return FakeProvider()
+
+    monkeypatch.setattr(
+        "app.worker.runner.get_provider",
+        fake_get_provider,
+    )
+
+    job = SimpleNamespace(
+        id=1,
+        status="RUNNING",
+        end_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        last_checked_at=None,
+        poll_interval_seconds=0,
+        platform="bookmyshow",
+    )
+
+    class FakeQuery:
+        def filter(self, *args):
+            return self
+
+        def all(self):
+            return [job]
+
+    class FakeDB:
+        def query(self, model):
+            return FakeQuery()
+
+        def commit(self):
+            pass
+
+    result = await run_worker_cycle(
+        FakeDB(),
+        provider=None,
+        notification_service=None,
+    )
+
+    assert result["checked"] == 1
+    assert calls == [
+        "factory:bookmyshow",
+        "bookmyshow",
+    ]
+
+@pytest.mark.asyncio
+async def test_worker_cycle_deduplicates_sessions():
+    state = WorkerState()
+
+    class FakeProvider:
+        async def check(self, job):
+            return {
+                "available": True,
+                "message": "Showtime available",
+                "sessions": [
+                    {
+                        "id": "session-1",
+                        "cinema": "PVR Hyderabad",
+                        "time": "19:30",
+                        "format": "IMAX",
+                    }
+                ],
+            }
+
+    class FakeNotificationService:
+        def __init__(self):
+            self.messages = []
+
+        async def send(self, recipient, message):
+            self.messages.append(message)
+
+    job = SimpleNamespace(
+        id=1,
+        status="RUNNING",
+        end_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        last_checked_at=None,
+        poll_interval_seconds=0,
+        user=SimpleNamespace(telegram_user_id=123),
+        target_name="ET123",
+        platform="bookmyshow",
+        city="Hyderabad",
+        theater="PVR",
+    )
+
+    class FakeQuery:
+        def filter(self, *args):
+            return self
+
+        def all(self):
+            return [job]
+
+    class FakeDB:
+        def query(self, model):
+            return FakeQuery()
+
+        def commit(self):
+            pass
+
+    notifications = FakeNotificationService()
+    provider = FakeProvider()
+
+    first = await run_worker_cycle(
+        FakeDB(),
+        provider=provider,
+        notification_service=notifications,
+        worker_state=state,
+    )
+
+    job.last_checked_at = None
+
+    second = await run_worker_cycle(
+        FakeDB(),
+        provider=provider,
+        notification_service=notifications,
+        worker_state=state,
+    )
+
+    assert first["checked"] == 1
+    assert first["notified"] == 1
+
+    assert second["checked"] == 1
+    assert second["notified"] == 0
+
+    assert len(notifications.messages) == 1
