@@ -12,6 +12,10 @@ from app.services.providers.result import AvailabilityResult
 from app.services.providers.matcher import matching_sessions
 from app.services.providers.bookmyshow_config import get_city_config
 from app.services.providers.bookmyshow_response import classify_response
+from app.services.providers.normalize import (
+    session_dicts_from_shows,
+    shows_from_bms_sessions,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -178,8 +182,18 @@ class BookMyShowProvider(BaseProvider):
                 sessions=[],
             ).to_dict()
 
+        shows = shows_from_bms_sessions(
+            matched_sessions,
+            movie_id=job.target_name,
+            city=job.city,
+        )
+        normalized_sessions = session_dicts_from_shows(shows)
+
         return AvailabilityResult(
             available=True,
-            message=f"{len(matched_sessions)} matching showtime(s) found on BookMyShow.",
-            sessions=matched_sessions,
+            message=(
+                f"{len(normalized_sessions)} matching showtime(s) "
+                f"found on BookMyShow."
+            ),
+            sessions=normalized_sessions,
         ).to_dict()

@@ -1,0 +1,15 @@
+.venv
+.git
+.github
+__pycache__
+*.pyc
+.env
+.pytest_cache
+.mypy_cache
+.ruff_cache
+data
+scripts/bms_profile
+scripts/bms_*_profile
+*.har
+tests
+project-architecture.md

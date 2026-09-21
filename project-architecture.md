@@ -1096,22 +1096,22 @@ DONE — BMS MVP monitor
 NEXT (post-MVP)
      │
      ▼
-① District provider
+① District provider research + live retrieval   ← placeholder wired
      │
      ▼
-② Shared PulseGrid Show normalizer
+② Admin / React dashboard
      │
      ▼
-③ Multi-provider jobs
+③ Multi-provider jobs UX polish
      │
      ▼
-④ Admin / React dashboard
-     │
-     ▼
-⑤ Docker + cloud deployment
-     │
-     ▼
-⑥ GitHub Actions + production hardening
+④ Cloud deployment hardening
+
+DONE recently
+  ✅ Shared PulseGrid Show normalizer
+  ✅ DistrictProvider stub in factory
+  ✅ Docker Compose (api + worker + db)
+  ✅ GitHub Actions CI (pytest)
 ```
 
 ### The most important thing

@@ -20,3 +20,27 @@ scripts/bms_diag_cookies.json
 scripts/bms_live_response.json
 scripts/bms_curl_cffi_response.json
 *.har
+
+# BMS research scratch (not part of runtime)
+app/services/providers/bookmyshow_browser.py
+scripts/bms_profile/
+scripts/bms_session.py
+scripts/analyse_*.py
+scripts/analyze_*.py
+scripts/capture_*.py
+scripts/debug_*.py
+scripts/deep_*.py
+scripts/explore_*.py
+scripts/extract_*.py
+scripts/find_*.py
+scripts/inspect_*.py
+scripts/test_bms*.py
+scripts/test_bookmyshow_live.py
+scripts/test_click_flow.py
+scripts/test_direct_url.py
+scripts/test_fresh_session.py
+scripts/test_full_flow.py
+scripts/test_har_cookies.py
+scripts/test_headed.py
+scripts/test_mandaadi*.py
+scripts/test_stealth*.py

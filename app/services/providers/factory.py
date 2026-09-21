@@ -1,5 +1,6 @@
 from app.services.providers.base import BaseProvider
 from app.services.providers.bookmyshow import BookMyShowProvider
+from app.services.providers.district import DistrictProvider
 from app.services.providers.mock import MockProvider
 
 
@@ -11,5 +12,8 @@ def get_provider(platform: str) -> BaseProvider:
 
     if platform == "bookmyshow":
         return BookMyShowProvider()
+
+    if platform == "district":
+        return DistrictProvider()
 
     raise ValueError(f"Unsupported provider: {platform}")

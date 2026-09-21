@@ -3,6 +3,7 @@ import pytest
 from app.services.providers.factory import get_provider
 from app.services.providers.mock import MockProvider
 from app.services.providers.bookmyshow import BookMyShowProvider
+from app.services.providers.district import DistrictProvider
 
 
 def test_get_mock_provider():
@@ -31,3 +32,9 @@ def test_get_bookmyshow_provider_case_insensitive():
     provider = get_provider("BOOKMYSHOW")
 
     assert isinstance(provider, BookMyShowProvider)
+
+def test_get_district_provider():
+    provider = get_provider("district")
+
+    assert isinstance(provider, DistrictProvider)
+

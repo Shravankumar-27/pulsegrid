@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pulsegrid
+      POSTGRES_PASSWORD: pulsegrid
+      POSTGRES_DB: pulsegrid
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulsegrid -d pulsegrid"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    command: api
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://pulsegrid:pulsegrid@db:5432/pulsegrid
+      BMS_COOKIE_PATH: /data/bms_session_cookies.json
+      BMS_PROFILE_DIR: /data/bms_browser_profile
+      WORKER_STATE_PATH: /data/worker_state.json
+    ports:
+      - "8000:8000"
+    volumes:
+      - pulsegrid-data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    build: .
+    command: worker
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://pulsegrid:pulsegrid@db:5432/pulsegrid
+      BMS_COOKIE_PATH: /data/bms_session_cookies.json
+      BMS_PROFILE_DIR: /data/bms_browser_profile
+      WORKER_STATE_PATH: /data/worker_state.json
+      WORKER_POLL_SECONDS: "15"
+    volumes:
+      - pulsegrid-data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
+
+volumes:
+  pgdata:
+  pulsegrid-data:

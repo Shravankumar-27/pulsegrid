@@ -78,6 +78,25 @@ Any
 
 For BookMyShow, **Target must be the event code** (e.g. `ET00514261`), not the movie title. Theater `Any` matches all venues.
 
+## Docker
+
+```powershell
+copy .env.example .env
+# set TELEGRAM_BOT_TOKEN and JWT_SECRET_KEY in .env
+docker compose up --build
+```
+
+Services:
+- `db` — Postgres 16
+- `api` — FastAPI on `:8000` (runs migrations on start)
+- `worker` — continuous monitor loop
+
+Bootstrap CF cookies on the host (needs a display), then copy into the shared volume or mount `data/`:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/bootstrap_bms_session.py
+```
+
 ## Smoke tests
 
 Fetch showtimes only:
