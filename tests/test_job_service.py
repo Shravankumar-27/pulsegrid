@@ -17,7 +17,7 @@ def sample_job(db_session):
     job = TrackingJob(
         user_id=1,
         target_name="Test Target",
-        platform="platform_a",
+        platform="bookmyshow",
         city="Hyderabad",
         theater="Test Theater",
         target_date=date(2026, 9, 20),
@@ -86,7 +86,7 @@ def test_create_tracking_job(db_session):
 
     job_data = TrackingJobCreate(
         target_name="Panja",
-        platform="BookMyShow",
+        platform="bookmyshow",
         city="Hyderabad",
         theater="AMB Cinemas",
         target_date=date(2026, 9, 20),
@@ -118,7 +118,7 @@ def test_create_tracking_job(db_session):
     assert job.id is not None
     assert job.user_id == user.id
     assert job.target_name == "Panja"
-    assert job.platform == "BookMyShow"
+    assert job.platform == "bookmyshow"
     assert job.city == "Hyderabad"
     assert job.theater == "AMB Cinemas"
     assert job.poll_interval_seconds == 60

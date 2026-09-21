@@ -34,7 +34,7 @@ def create_job(
     job = TrackingJob(
         user_id=user_id,
         target_name=target_name,
-        platform="platform_a",
+        platform="bookmyshow",
         city="Hyderabad",
         theater="Test Theater",
         target_date=datetime(2026, 9, 16).date(),
@@ -69,7 +69,7 @@ def test_create_job_belongs_to_current_user(client, db_session, auth_headers):
         headers=auth_headers(2),
         json={
             "target_name": "Test Target",
-            "platform": "platform_a",
+            "platform": "bookmyshow",
             "city": "Hyderabad",
             "theater": "Test Theater",
             "target_date": "2026-09-16",
@@ -93,7 +93,7 @@ def test_create_job_requires_authentication(client):
         "/api/v1/jobs",
         json={
             "target_name": "Test Target",
-            "platform": "platform_a",
+            "platform": "bookmyshow",
             "city": "Hyderabad",
             "theater": "Test Theater",
             "target_date": "2026-09-16",
@@ -114,7 +114,7 @@ def test_create_job_rejects_invalid_time(client, db_session, auth_headers):
         headers=auth_headers(2),
         json={
             "target_name": "Invalid Job",
-            "platform": "platform_a",
+            "platform": "bookmyshow",
             "city": "Hyderabad",
             "theater": "Test Theater",
             "target_date": "2026-09-16",
@@ -139,7 +139,7 @@ def test_create_job_rejects_poll_interval_below_minimum(
         headers=auth_headers(2),
         json={
             "target_name": "Invalid Poll Job",
-            "platform": "platform_a",
+            "platform": "bookmyshow",
             "city": "Hyderabad",
             "theater": "Test Theater",
             "target_date": "2026-09-16",

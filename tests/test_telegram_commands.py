@@ -132,7 +132,7 @@ def test_parse_track_command():
     )
 
     assert result.target_name == "Panja"
-    assert result.platform == "BookMyShow"
+    assert result.platform == "bookmyshow"
     assert result.city == "Hyderabad"
     assert result.theater == "AMB Cinemas"
     assert result.target_date.isoformat() == "2026-09-20"
@@ -244,7 +244,7 @@ async def test_handle_track_creates_job(monkeypatch):
     assert sent_messages[0]["chat_id"] == 123
     assert "Tracking job #12 created" in sent_messages[0]["message"]
     assert "Panja" in sent_messages[0]["message"]
-    assert "BookMyShow" in sent_messages[0]["message"]
+    assert "bookmyshow" in sent_messages[0]["message"]
     assert "RUNNING" in sent_messages[0]["message"]
 
 @pytest.mark.asyncio

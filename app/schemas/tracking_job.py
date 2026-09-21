@@ -1,6 +1,34 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+ALLOWED_PLATFORMS = frozenset({"bookmyshow", "district", "mock"})
+
+_PLATFORM_ALIASES = {
+    "bookmyshow": "bookmyshow",
+    "bms": "bookmyshow",
+    "district": "district",
+    "districtin": "district",
+    "mock": "mock",
+}
+
+
+def normalize_platform(value: str) -> str:
+    key = (
+        value.strip()
+        .lower()
+        .replace("_", "")
+        .replace("-", "")
+        .replace(" ", "")
+        .replace(".", "")
+    )
+    normalized = _PLATFORM_ALIASES.get(key)
+    if normalized is None:
+        allowed = ", ".join(sorted(ALLOWED_PLATFORMS))
+        raise ValueError(
+            f"Unsupported platform {value!r}. Use one of: {allowed}"
+        )
+    return normalized
 
 
 class TrackingJobCreate(BaseModel):
@@ -16,12 +44,20 @@ class TrackingJobCreate(BaseModel):
 
     poll_interval_seconds: int = Field(default=60, ge=10)
 
+    @field_validator("platform", mode="before")
+    @classmethod
+    def validate_platform(cls, value):
+        if value is None:
+            return value
+        return normalize_platform(str(value))
+
     @model_validator(mode="after")
     def validate_times(self):
         if self.end_at <= self.start_at:
             raise ValueError("end_at must be after start_at")
 
         return self
+
 
 class TrackingJobResponse(BaseModel):
     id: int
@@ -48,6 +84,7 @@ class TrackingJobResponse(BaseModel):
         "from_attributes": True,
     }
 
+
 class TrackingJobUpdate(BaseModel):
     target_name: str | None = Field(default=None, min_length=1, max_length=200)
     platform: str | None = Field(default=None, min_length=1, max_length=30)
@@ -62,3 +99,10 @@ class TrackingJobUpdate(BaseModel):
     poll_interval_seconds: int | None = Field(default=None, ge=10)
 
     status: str | None = Field(default=None, min_length=1, max_length=20)
+
+    @field_validator("platform", mode="before")
+    @classmethod
+    def validate_platform(cls, value):
+        if value is None or value == "":
+            return value
+        return normalize_platform(str(value))

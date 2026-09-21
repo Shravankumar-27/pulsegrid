@@ -1096,20 +1096,15 @@ DONE — BMS MVP monitor
 NEXT (post-MVP)
      │
      ▼
-① District live retrieval   ✅ SSR __NEXT_DATA__ / arrangedSessions
+① Admin / React dashboard
      │
      ▼
-② Admin / React dashboard
-     │
-     ▼
-③ Multi-provider jobs UX polish
-     │
-     ▼
-④ Cloud deployment hardening
+② Cloud deployment hardening
 
 DONE recently
   ✅ Shared PulseGrid Show normalizer
   ✅ DistrictProvider (SSR pageProps → sessions)
+  ✅ Multi-provider UX (platform allowlist + Telegram tips)
   ✅ Docker Compose (api + worker + db)
   ✅ GitHub Actions CI (pytest)
 ```

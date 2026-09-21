@@ -12,6 +12,8 @@ from app.services.job_service import (
     delete_tracking_job,
     get_job_for_user,
 )
+from pydantic import ValidationError
+
 from app.schemas.tracking_job import TrackingJobCreate
 
 def parse_track_command(argument: str) -> TrackingJobCreate:
@@ -32,7 +34,11 @@ def parse_track_command(argument: str) -> TrackingJobCreate:
             "<date>\n"
             "<start time>\n"
             "<end time>\n"
-            "<poll interval>"
+            "<poll interval>\n\n"
+            "Platforms: bookmyshow | district\n"
+            "BookMyShow target: ET code (ET00514261)\n"
+            "District target: MV code (MV181196) or movie URL\n"
+            "Theater: Any for all venues"
         )
 
     (
@@ -95,22 +101,29 @@ async def handle_track(
             "Usage:\n\n"
             "/track\n"
             "Target\n"
-            "Platform\n"
+            "Platform (bookmyshow | district)\n"
             "City\n"
-            "Theater\n"
+            "Theater (or Any)\n"
             "YYYY-MM-DD\n"
             "HH:MM\n"
             "HH:MM\n"
-            "Poll interval in seconds",
+            "Poll interval in seconds\n\n"
+            "BookMyShow target: ET00514261\n"
+            "District target: MV181196",
         )
         return
 
     try:
         job_data = parse_track_command(argument)
-    except ValueError as exc:
+    except (ValueError, ValidationError) as exc:
+        message = str(exc)
+        if isinstance(exc, ValidationError):
+            message = "; ".join(
+                err.get("msg", str(err)) for err in exc.errors()
+            )
         await send_message(
             chat_id,
-            f"❌ {exc}",
+            f"❌ {message}",
         )
         return
 
@@ -148,8 +161,10 @@ async def handle_track(
         f"{job.end_at.strftime('%H:%M')}\n"
         f"🔄 Poll interval: {job.poll_interval_seconds}s\n"
         f"📌 Status: {job.status}\n\n"
-        f"Tip: for BookMyShow, Target should be the event code "
-        f"(e.g. ET00514261).",
+        f"Tips:\n"
+        f"• bookmyshow → Target = ET code (ET00514261)\n"
+        f"• district → Target = MV code (MV181196) or movie URL\n"
+        f"• Theater Any = all venues",
     )
 
 
@@ -176,8 +191,10 @@ async def handle_help(chat_id: int):
         "/resume <id> - Resume / start a pending job\n"
         "/stop <id> - Stop a job\n"
         "/delete <id> - Delete a tracking job\n\n"
-        "BookMyShow tip: use the event code as Target "
-        "(e.g. ET00514261). Theater can be Any.",
+        "Platforms: bookmyshow | district\n"
+        "BookMyShow target: ET code (e.g. ET00514261)\n"
+        "District target: MV code (e.g. MV181196) or movie URL\n"
+        "Theater can be Any for all venues.",
     )
 
 
