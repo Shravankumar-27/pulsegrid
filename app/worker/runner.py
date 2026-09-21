@@ -1,9 +1,14 @@
+import asyncio
 from datetime import datetime, timezone
+import logging
 
 from app.database import SessionLocal
 from app.models.tracking_job import TrackingJob
 from app.services.providers.factory import get_provider
 from app.services.availability_tracker import get_new_sessions
+from app.utils.time import format_ist
+
+logger = logging.getLogger("pulsegrid.worker")
 
 def get_running_jobs():
     db = SessionLocal()
@@ -69,12 +74,16 @@ def should_poll(job):
 
 
 def build_notification_message(job, result):
+    title = getattr(job, "movie_name", None) or job.target_name
+    checked_time_ist = format_ist(getattr(job, "last_checked_at", None) or datetime.now(timezone.utc))
     message = (
         f"🎟️ PulseGrid Alert\n\n"
+        f"Movie: {title}\n"
         f"Target: {job.target_name}\n"
         f"Platform: {job.platform}\n"
         f"City: {job.city}\n"
-        f"Theater: {job.theater}\n\n"
+        f"Theater: {job.theater}\n"
+        f"Time (IST): {checked_time_ist}\n\n"
     )
 
     sessions = result.get("sessions", [])
@@ -133,6 +142,15 @@ async def process_job(
         result["available"] = bool(new_sessions)
 
     job.last_checked_at = datetime.now(timezone.utc)
+    raw_sessions = result.get("sessions", [])
+    job.last_result_json = {
+        "available": result.get("available", False),
+        "message": result.get("message", ""),
+        "sessions": raw_sessions,
+        "sessions_count": len(raw_sessions),
+        "last_checked_at": job.last_checked_at.isoformat(),
+        "last_checked_at_ist": format_ist(job.last_checked_at),
+    }
 
     if result.get("available") is True and notification_service is not None:
         recipient = str(job.user.telegram_user_id)
@@ -215,6 +233,15 @@ async def run_worker_cycle(
             provider_result["available"] = bool(new_sessions)
 
         job.last_checked_at = datetime.now(timezone.utc)
+        raw_sessions = provider_result.get("sessions", [])
+        job.last_result_json = {
+            "available": bool(raw_sessions),
+            "message": provider_result.get("message", ""),
+            "sessions": raw_sessions,
+            "sessions_count": len(raw_sessions),
+            "last_checked_at": job.last_checked_at.isoformat(),
+            "last_checked_at_ist": format_ist(job.last_checked_at),
+        }
 
         result["checked"] += 1
 
@@ -262,3 +289,48 @@ async def process_running_job(
         )
 
     return result
+
+
+async def run_embedded_worker(
+    poll_interval: float = 15.0,
+    notification_service=None,
+    worker_state=None,
+):
+    """
+    Background asyncio task for FastAPI lifespan.
+    Runs worker cycles periodically inside the web server process.
+    """
+    from app.services.notifications.telegram import TelegramNotification
+    from app.config import settings
+    from app.worker.state import WorkerState
+
+    if notification_service is None and settings.telegram_bot_token:
+        notification_service = TelegramNotification(settings.telegram_bot_token)
+    if worker_state is None:
+        worker_state = WorkerState(persist_path="data/worker_state.json")
+
+    logger.info("Embedded PulseGrid worker task started.")
+    while True:
+        db = SessionLocal()
+        try:
+            result = await run_worker_cycle(
+                db=db,
+                notification_service=notification_service,
+                worker_state=worker_state,
+            )
+            worker_state.save()
+            if result["checked"] > 0 or result["completed"] > 0:
+                logger.info(
+                    f"Embedded worker cycle: checked={result['checked']} "
+                    f"notified={result['notified']} skipped={result['skipped']} "
+                    f"completed={result['completed']}"
+                )
+        except asyncio.CancelledError:
+            logger.info("Embedded worker task cancelled.")
+            break
+        except Exception as exc:
+            logger.error(f"Embedded worker cycle error: {exc}")
+        finally:
+            db.close()
+
+        await asyncio.sleep(poll_interval)

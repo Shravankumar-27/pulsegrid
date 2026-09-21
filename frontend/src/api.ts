@@ -9,6 +9,28 @@ export type JobStatus =
 
 export type Platform = "bookmyshow" | "district" | "mock";
 
+export interface SessionResult {
+  id?: string;
+  cinema?: string;
+  venue_code?: string;
+  time?: string;
+  format?: string;
+  avail_status?: number | string;
+  provider?: string;
+  movie_id?: string;
+  city?: string;
+  language?: string;
+}
+
+export interface JobLastResult {
+  available: boolean;
+  message?: string;
+  sessions?: SessionResult[];
+  sessions_count?: number;
+  last_checked_at?: string;
+  last_checked_at_ist?: string;
+}
+
 export interface TrackingJob {
   id: number;
   user_id: number;
@@ -16,6 +38,8 @@ export interface TrackingJob {
   platform: string;
   city: string;
   theater: string;
+  movie_name: string | null;
+  theater_id: number | null;
   target_date: string;
   start_at: string;
   end_at: string;
@@ -24,6 +48,39 @@ export interface TrackingJob {
   created_at: string;
   updated_at: string;
   last_checked_at: string | null;
+  last_result_json?: JobLastResult | null;
+}
+
+export interface Theater {
+  id: number;
+  user_id: number;
+  name: string;
+  city: string;
+  bookmyshow_venue_id: string | null;
+  district_venue_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WatchJobPayload {
+  movie_name: string;
+  city: string;
+  start_at: string;
+  end_at: string;
+  platforms: Platform[];
+  bookmyshow_target?: string | null;
+  district_target?: string | null;
+  theater_id?: number | null;
+  theater_name?: string | null;
+  bookmyshow_venue_id?: string | null;
+  district_venue_id?: string | null;
+  poll_interval_seconds?: number;
+  start_immediately?: boolean;
+}
+
+export interface WatchJobResult {
+  jobs: TrackingJob[];
+  theater: Theater | null;
 }
 
 export function getToken(): string | null {
@@ -66,7 +123,9 @@ async function request<T>(
       if (typeof body.detail === "string") {
         detail = body.detail;
       } else if (Array.isArray(body.detail)) {
-        detail = body.detail.map((d: { msg?: string }) => d.msg ?? d).join("; ");
+        detail = body.detail
+          .map((d: { msg?: string }) => d.msg ?? String(d))
+          .join("; ");
       }
     } catch {
       /* ignore */
@@ -94,6 +153,19 @@ export async function listJobs(): Promise<TrackingJob[]> {
   return request<TrackingJob[]>("/api/v1/jobs");
 }
 
+export async function createWatchJob(
+  payload: WatchJobPayload,
+): Promise<WatchJobResult> {
+  return request<WatchJobResult>("/api/v1/jobs/watch", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function listTheaters(): Promise<Theater[]> {
+  return request<Theater[]>("/api/v1/theaters");
+}
+
 export async function pauseJob(id: number): Promise<TrackingJob> {
   return request<TrackingJob>(`/api/v1/jobs/${id}/pause`, { method: "POST" });
 }
@@ -114,4 +186,18 @@ export async function deleteJob(id: number): Promise<void> {
   await request<{ message: string; id: number }>(`/api/v1/jobs/${id}`, {
     method: "DELETE",
   });
+}
+
+export async function getJobResults(id: number): Promise<{
+  job_id: number;
+  movie_name: string;
+  platform: string;
+  city: string;
+  theater: string;
+  status: string;
+  last_checked_at: string | null;
+  last_checked_at_ist: string | null;
+  result: JobLastResult;
+}> {
+  return request(`/api/v1/jobs/${id}/results`);
 }

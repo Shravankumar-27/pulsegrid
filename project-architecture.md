@@ -1105,6 +1105,9 @@ DONE recently
   ✅ Admin React dashboard (jobs ops)
   ✅ Docker Compose (api + worker + db)
   ✅ GitHub Actions CI (pytest)
+  ✅ Automatic embedded worker lifespan in FastAPI
+  ✅ IST primary timezone standard (`Asia/Kolkata`)
+  ✅ Persisted `last_result_json` & Web UI Show Results modal
 ```
 
 ### The most important thing
@@ -1120,3 +1123,20 @@ Telegram                  →  alert on new sessions
 
 Keep provider-specific code inside `app/services/providers/`. Core worker
 and job APIs stay provider-agnostic.
+
+---
+
+# 27. Key Architecture Directives (User & System Requirements)
+
+1. **Automatic Embedded Worker Execution**:
+   - Once deployed to the cloud, the background worker should automatically run without requiring manual CLI process execution.
+   - FastAPI lifespan handles embedded background worker tasks (`ENABLE_EMBEDDED_WORKER=true`), so single-container cloud environments (Render, Railway, Docker) execute poller loops automatically upon backend startup.
+
+2. **Indian Standard Time (IST) Primary Timezones**:
+   - All user-facing timestamps, job creation/start/end times, polling logs, Telegram alerts, and Web UI displays default to **IST** (`Asia/Kolkata`, UTC+05:30).
+   - UTC is stored cleanly in PostgreSQL and can optionally be rendered as secondary helper text/tooltips in the UI.
+
+3. **Web UI Show Results & Session History**:
+   - Detected showtimes and availability snapshots sent via Telegram are saved to PostgreSQL (`last_result_json`) and exposed via REST API (`GET /api/v1/jobs/{id}/results`).
+   - Clicking any tracking job in the Web UI opens an interactive **Show Results Drawer / Modal** showing live detected showtimes, venue details, formats, and polling status.
+

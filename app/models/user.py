@@ -46,3 +46,8 @@ class User(Base):
         "TrackingJob",
         back_populates="user",
     )
+
+    theaters = relationship(
+        "Theater",
+        back_populates="user",
+    )

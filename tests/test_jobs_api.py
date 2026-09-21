@@ -634,3 +634,38 @@ def test_start_job_requires_authentication(client, db_session):
     )
 
     assert response.status_code == 401
+
+
+def test_get_job_results(client, db_session, auth_headers):
+    create_user(db_session, user_id=2)
+    job = create_job(
+        db_session,
+        user_id=2,
+        target_name="Show Results Test",
+    )
+    job.last_result_json = {
+        "available": True,
+        "message": "Showtimes found",
+        "sessions": [
+            {
+                "id": "session-123",
+                "cinema": "PVR Forum",
+                "time": "19:30",
+                "format": "IMAX",
+            }
+        ],
+        "sessions_count": 1,
+    }
+    db_session.commit()
+
+    response = client.get(
+        f"/api/v1/jobs/{job.id}/results",
+        headers=auth_headers(2),
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["job_id"] == job.id
+    assert data["result"]["available"] is True
+    assert len(data["result"]["sessions"]) == 1
+    assert data["result"]["sessions"][0]["cinema"] == "PVR Forum"

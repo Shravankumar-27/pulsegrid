@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from app.models.user import User
 from app.models.tracking_job import TrackingJob
+from app.models.theater import Theater  # noqa: F401
 from app.database import get_db
 from app.main import app
 from app.models import Base

@@ -37,6 +37,9 @@ class TrackingJobCreate(BaseModel):
     city: str = Field(min_length=1, max_length=100)
     theater: str = Field(min_length=1, max_length=200)
 
+    movie_name: str | None = Field(default=None, max_length=200)
+    theater_id: int | None = None
+
     target_date: date
 
     start_at: datetime
@@ -50,6 +53,14 @@ class TrackingJobCreate(BaseModel):
         if value is None:
             return value
         return normalize_platform(str(value))
+
+    @field_validator("movie_name", mode="before")
+    @classmethod
+    def empty_movie_name(cls, value):
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
 
     @model_validator(mode="after")
     def validate_times(self):
@@ -67,6 +78,8 @@ class TrackingJobResponse(BaseModel):
     platform: str
     city: str
     theater: str
+    movie_name: str | None = None
+    theater_id: int | None = None
 
     target_date: date
 
@@ -80,6 +93,18 @@ class TrackingJobResponse(BaseModel):
     updated_at: datetime
     last_checked_at: datetime | None = None
 
+    last_result_json: dict | None = None
+
+    @property
+    def created_at_ist(self) -> str | None:
+        from app.utils.time import format_ist
+        return format_ist(self.created_at)
+
+    @property
+    def last_checked_at_ist(self) -> str | None:
+        from app.utils.time import format_ist
+        return format_ist(self.last_checked_at)
+
     model_config = {
         "from_attributes": True,
     }
@@ -90,6 +115,8 @@ class TrackingJobUpdate(BaseModel):
     platform: str | None = Field(default=None, min_length=1, max_length=30)
     city: str | None = Field(default=None, min_length=1, max_length=100)
     theater: str | None = Field(default=None, min_length=1, max_length=200)
+    movie_name: str | None = Field(default=None, max_length=200)
+    theater_id: int | None = None
 
     target_date: date | None = None
 

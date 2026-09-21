@@ -52,7 +52,7 @@ def parse_args() -> argparse.Namespace:
 async def run(args: argparse.Namespace) -> int:
     notification = TelegramNotification(settings.telegram_bot_token)
     worker_state = WorkerState(persist_path=args.state_file)
-    print(f"Worker state → {args.state_file}")
+    print(f"Worker state -> {args.state_file}")
     print("PulseGrid worker started.")
 
     while True:

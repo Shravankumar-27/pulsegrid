@@ -67,10 +67,104 @@ h1 {
   margin: 0.5rem 0;
 }
 
-.error.banner {
+.notice.banner {
   padding: 0.65rem 0.85rem;
-  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--line));
-  background: color-mix(in srgb, var(--danger) 8%, white);
+  border: 1px solid color-mix(in srgb, var(--ok) 35%, var(--line));
+  background: color-mix(in srgb, var(--ok) 8%, white);
+  color: var(--accent-ink);
+  margin: 0.5rem 0;
+}
+
+.create-panel {
+  margin: 1.25rem 0;
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, white 78%, var(--paper));
+}
+
+.create-panel h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.25rem;
+}
+
+.create-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.create-form label,
+.create-form fieldset {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.create-form label,
+.create-form legend {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+.create-form input,
+.create-form select {
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--ink);
+}
+
+.create-form input.mono {
+  font-family: var(--mono);
+}
+
+.form-row {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.platform-picks,
+.theater-picks {
+  border: 1px solid var(--line);
+  padding: 0.75rem;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem 1.25rem;
+  align-items: center;
+}
+
+.platform-picks legend,
+.theater-picks legend {
+  padding: 0 0.25rem;
+}
+
+.check {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--sans) !important;
+  font-size: 0.95rem !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  color: var(--ink) !important;
+}
+
+.check input {
+  width: auto;
+  margin: 0;
+}
+
+.create-form > button[type="submit"] {
+  justify-self: start;
+  margin-top: 0.25rem;
+  padding: 0.65rem 1rem;
 }
 
 button {
@@ -291,3 +385,117 @@ button.danger:hover:not(:disabled) {
     margin-left: 0;
   }
 }
+
+/* Results Modal / Drawer */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 32, 26, 0.6);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-content {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  width: min(720px, 100%);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper-2);
+}
+
+.modal-header h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.35rem;
+}
+
+.modal-body {
+  padding: 1.25rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.result-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  padding: 0.85rem;
+  background: color-mix(in srgb, white 60%, var(--paper));
+  border: 1px solid var(--line);
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.meta-label {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.meta-val {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.session-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  background: white;
+}
+
+.session-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.session-time {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--accent-ink);
+}
+
+.session-details {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.badge-tag {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--line);
+  background: var(--paper-2);
+}
+

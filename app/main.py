@@ -1,3 +1,5 @@
+import asyncio
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -6,14 +8,38 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
+from app.config import settings
 from app.database import engine
 from app.routers.jobs import router as jobs_router
 from app.routers.auth import router as auth_router
 from app.routers.telegram import router as telegram_router
+from app.routers.theaters import router as theaters_router
+from app.worker.runner import run_embedded_worker
+# Ensure models are registered for relationships / Alembic.
+import app.models  # noqa: F401
 
 FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 
-app = FastAPI(title="PulseGrid")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    worker_task = None
+    if settings.enable_embedded_worker:
+        worker_task = asyncio.create_task(
+            run_embedded_worker(poll_interval=settings.worker_poll_seconds)
+        )
+    try:
+        yield
+    finally:
+        if worker_task:
+            worker_task.cancel()
+            try:
+                await worker_task
+            except asyncio.CancelledError:
+                pass
+
+
+app = FastAPI(title="PulseGrid", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,6 +55,7 @@ app.add_middleware(
 app.include_router(jobs_router)
 app.include_router(auth_router)
 app.include_router(telegram_router)
+app.include_router(theaters_router)
 
 
 @app.get("/health")

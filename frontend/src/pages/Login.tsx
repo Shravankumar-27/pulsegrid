@@ -37,8 +37,8 @@ export function Login({ onSuccess }: LoginProps) {
         <p className="eyebrow">PulseGrid Ops</p>
         <h1>Sign in</h1>
         <p className="lede">
-          Use your authorized Telegram user id. Jobs are created via the bot;
-          this console manages them.
+          Use your authorized Telegram user id. Create watches here or via the
+          bot — alerts always go to Telegram.
         </p>
 
         <form className="login-form" onSubmit={handleSubmit}>

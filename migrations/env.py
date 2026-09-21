@@ -8,6 +8,7 @@ from alembic import context
 from app.models import Base
 from app.models.user import User
 from app.models.tracking_job import TrackingJob
+from app.models.theater import Theater  # noqa: F401
 
 from app.config import settings
 

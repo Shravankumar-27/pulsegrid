@@ -1,6 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
 from app.models.tracking_job import TrackingJob
 from app.models.user import User
@@ -16,78 +16,91 @@ from pydantic import ValidationError
 
 from app.schemas.tracking_job import TrackingJobCreate
 
+IST = timezone(timedelta(hours=5, minutes=30))
+
+TRACK_USAGE = (
+    "Create a tracking job:\n\n"
+    "Easy (recommended):\n"
+    "/track ET00514261 bookmyshow Hyderabad\n"
+    "/track MV181196 district Hyderabad\n\n"
+    "Optional extras:\n"
+    "/track <target> <platform> <city> [theater] [YYYY-MM-DD]\n\n"
+    "Defaults if omitted:\n"
+    "• Theater = Any\n"
+    "• Date = today (IST)\n"
+    "• Window = 00:00–23:59\n"
+    "• Poll = 60 seconds\n\n"
+    "Full form (8 lines) still works for custom windows."
+)
+
+
+def _today_ist() -> date:
+    return datetime.now(IST).date()
+
+
+def _split_track_fields(argument: str) -> list[str]:
+    raw = argument.strip()
+    if "\n" in raw:
+        return [line.strip() for line in raw.splitlines() if line.strip()]
+    return raw.split()
+
+
 def parse_track_command(argument: str) -> TrackingJobCreate:
-    fields = [
-        field.strip()
-        for field in argument.splitlines()
-        if field.strip()
-    ]
+    fields = _split_track_fields(argument)
 
-    if len(fields) != 8:
-        raise ValueError(
-            "Usage:\n"
-            "/track\n"
-            "<target>\n"
-            "<platform>\n"
-            "<city>\n"
-            "<theater>\n"
-            "<date>\n"
-            "<start time>\n"
-            "<end time>\n"
-            "<poll interval>\n\n"
-            "Platforms: bookmyshow | district\n"
-            "BookMyShow target: ET code (ET00514261)\n"
-            "District target: MV code (MV181196) or movie URL\n"
-            "Theater: Any for all venues"
-        )
+    if len(fields) not in {3, 4, 5, 8}:
+        raise ValueError(TRACK_USAGE)
 
-    (
-        target_name,
-        platform,
-        city,
-        theater,
-        target_date,
-        start_time,
-        end_time,
-        poll_interval,
-    ) = fields
+    target_name = fields[0]
+    platform = fields[1]
+    city = fields[2]
 
-    try:
-        parsed_date = date.fromisoformat(target_date)
+    theater = "Any"
+    target_date = _today_ist()
+    start_clock = time(0, 0)
+    end_clock = time(23, 59)
+    poll_interval = 60
 
-        parsed_start = datetime.combine(
-            parsed_date,
-            time.fromisoformat(start_time),
-            tzinfo=timezone.utc,
-        )
+    if len(fields) == 4:
+        theater = fields[3]
+    elif len(fields) == 5:
+        theater = fields[3]
+        try:
+            target_date = date.fromisoformat(fields[4])
+        except ValueError as exc:
+            raise ValueError(
+                "Invalid date. Use YYYY-MM-DD (e.g. 2026-09-21)."
+            ) from exc
+    elif len(fields) == 8:
+        theater = fields[3]
+        try:
+            target_date = date.fromisoformat(fields[4])
+            start_clock = time.fromisoformat(fields[5])
+            end_clock = time.fromisoformat(fields[6])
+            poll_interval = int(fields[7])
+        except ValueError as exc:
+            raise ValueError(
+                "Invalid date, time, or poll interval.\n"
+                "Use:\n"
+                "Date: YYYY-MM-DD\n"
+                "Time: HH:MM\n"
+                "Poll interval: seconds"
+            ) from exc
 
-        parsed_end = datetime.combine(
-            parsed_date,
-            time.fromisoformat(end_time),
-            tzinfo=timezone.utc,
-        )
-
-        parsed_poll_interval = int(poll_interval)
-
-    except ValueError as exc:
-        raise ValueError(
-            "Invalid date, time, or poll interval.\n"
-            "Use:\n"
-            "Date: YYYY-MM-DD\n"
-            "Time: HH:MM\n"
-            "Poll interval: seconds"
-        ) from exc
+    parsed_start = datetime.combine(target_date, start_clock, tzinfo=timezone.utc)
+    parsed_end = datetime.combine(target_date, end_clock, tzinfo=timezone.utc)
 
     return TrackingJobCreate(
         target_name=target_name,
         platform=platform,
         city=city,
         theater=theater,
-        target_date=parsed_date,
+        target_date=target_date,
         start_at=parsed_start,
         end_at=parsed_end,
-        poll_interval_seconds=parsed_poll_interval,
+        poll_interval_seconds=poll_interval,
     )
+
 
 async def handle_track(
     chat_id: int,
@@ -96,21 +109,7 @@ async def handle_track(
     argument: str,
 ):
     if not argument.strip():
-        await send_message(
-            chat_id,
-            "Usage:\n\n"
-            "/track\n"
-            "Target\n"
-            "Platform (bookmyshow | district)\n"
-            "City\n"
-            "Theater (or Any)\n"
-            "YYYY-MM-DD\n"
-            "HH:MM\n"
-            "HH:MM\n"
-            "Poll interval in seconds\n\n"
-            "BookMyShow target: ET00514261\n"
-            "District target: MV181196",
-        )
+        await send_message(chat_id, TRACK_USAGE)
         return
 
     try:
@@ -138,63 +137,64 @@ async def handle_track(
     except InvalidJobTransition:
         await send_message(
             chat_id,
-            f"✅ Tracking job #{job.id} created (PENDING).\n"
-            f"Use /resume {job.id} to start monitoring.",
+            f"✅ Job #{job.id} created (PENDING).\n"
+            f"Start it with /resume {job.id}",
         )
         return
     except Exception:
         await send_message(
             chat_id,
-            "❌ Failed to create tracking job.",
+            "❌ Couldn't create that job. Check the target/platform and try again.",
         )
         return
 
     await send_message(
         chat_id,
-        f"✅ Tracking job #{job.id} created and running!\n\n"
-        f"🎬 Target: {job.target_name}\n"
-        f"📺 Platform: {job.platform}\n"
-        f"📍 City: {job.city}\n"
-        f"🏢 Theater: {job.theater}\n"
-        f"📅 Date: {job.target_date}\n"
-        f"⏰ {job.start_at.strftime('%H:%M')} - "
+        f"✅ Watching #{job.id}\n\n"
+        f"Target: {job.target_name}\n"
+        f"Platform: {job.platform}\n"
+        f"City: {job.city}\n"
+        f"Theater: {job.theater}\n"
+        f"Date: {job.target_date}\n"
+        f"Window: {job.start_at.strftime('%H:%M')}–"
         f"{job.end_at.strftime('%H:%M')}\n"
-        f"🔄 Poll interval: {job.poll_interval_seconds}s\n"
-        f"📌 Status: {job.status}\n\n"
-        f"Tips:\n"
-        f"• bookmyshow → Target = ET code (ET00514261)\n"
-        f"• district → Target = MV code (MV181196) or movie URL\n"
-        f"• Theater Any = all venues",
+        f"Poll: every {job.poll_interval_seconds}s\n"
+        f"Status: {job.status}\n\n"
+        f"Manage: /pause {job.id} · /jobs · /stop {job.id}",
     )
 
 
 async def handle_start(chat_id: int):
     await send_message(
         chat_id,
-        "Welcome to PulseGrid!\n\n"
-        "Your Telegram account is authorized.\n\n"
-        "Use /help to see available commands.",
+        "Welcome to PulseGrid 👋\n\n"
+        "I watch BookMyShow & District showtimes and ping you "
+        "when matching shows appear.\n\n"
+        "Quick start:\n"
+        "/track ET00514261 bookmyshow Hyderabad\n"
+        "/track MV181196 district Hyderabad\n\n"
+        "See all commands: /help",
     )
 
 
 async def handle_help(chat_id: int):
     await send_message(
         chat_id,
-        "PulseGrid Commands\n\n"
-        "/start - Start using PulseGrid\n"
-        "/help - Show available commands\n"
-        "/track - Create and start a tracking job\n"
-        "/jobs - View your tracking jobs\n"
-        "/job <id> - View job details\n"
-        "/status - Show tracking summary\n"
-        "/pause <id> - Pause a job\n"
-        "/resume <id> - Resume / start a pending job\n"
-        "/stop <id> - Stop a job\n"
-        "/delete <id> - Delete a tracking job\n\n"
-        "Platforms: bookmyshow | district\n"
-        "BookMyShow target: ET code (e.g. ET00514261)\n"
-        "District target: MV code (e.g. MV181196) or movie URL\n"
-        "Theater can be Any for all venues.",
+        "PulseGrid help\n\n"
+        "Create\n"
+        "/track <target> <platform> <city>\n"
+        "  e.g. /track ET00514261 bookmyshow Hyderabad\n"
+        "  e.g. /track MV181196 district Hyderabad\n\n"
+        "Browse\n"
+        "/jobs — list your jobs\n"
+        "/job <id> — job details\n"
+        "/status — counts by status\n\n"
+        "Control\n"
+        "/pause <id>  /resume <id>\n"
+        "/stop <id>   /delete <id>\n\n"
+        "Platforms: bookmyshow · district\n"
+        "Theater tip: use Any for all venues\n"
+        "Optional: add theater and date after city",
     )
 
 
@@ -217,24 +217,25 @@ async def handle_jobs(
     if not jobs:
         await send_message(
             chat_id,
-            "You don't have any tracking jobs yet.",
+            "No jobs yet.\n\n"
+            "Create one:\n"
+            "/track ET00514261 bookmyshow Hyderabad",
         )
         return
 
-    lines = ["Your PulseGrid Jobs:\n"]
+    lines = ["Your jobs\n"]
 
     for job in jobs:
         lines.append(
-            f"#{job.id} | {job.target_name}\n"
-            f"Platform: {job.platform}\n"
-            f"Location: {job.city} / {job.theater}\n"
-            f"Date: {job.target_date}\n"
-            f"Status: {job.status}\n"
+            f"#{job.id} · {job.status}\n"
+            f"{job.target_name} · {job.platform}\n"
+            f"{job.city} / {job.theater} · {job.target_date}\n"
+            f"/job {job.id} · /pause {job.id} · /stop {job.id}\n"
         )
 
     await send_message(
         chat_id,
-        "\n".join(lines),
+        "\n".join(lines).strip(),
     )
 
 
@@ -280,7 +281,9 @@ async def handle_job(
         f"Start: {job.start_at}\n"
         f"End: {job.end_at}\n"
         f"Poll interval: {job.poll_interval_seconds} seconds\n"
-        f"Status: {job.status}",
+        f"Status: {job.status}\n\n"
+        f"/pause {job.id}  /resume {job.id}\n"
+        f"/stop {job.id}   /delete {job.id}",
     )
 
 
@@ -461,6 +464,7 @@ async def handle_resume(
         f"Job #{job.id} has been resumed.",
     )
 
+
 async def route_command(
     command: str,
     argument: str,
@@ -536,8 +540,10 @@ async def route_command(
         await send_message(
             chat_id,
             "I don't understand that command.\n"
-            "Use /help to see available commands.",
+            "Try /help or:\n"
+            "/track ET00514261 bookmyshow Hyderabad",
         )
+
 
 async def handle_delete(
     chat_id: int,
@@ -610,16 +616,19 @@ async def handle_delete(
         f"Target: {target_name}",
     )
 
+
 def parse_command(text: str) -> tuple[str, str]:
     parts = text.strip().split(maxsplit=1)
 
     if not parts:
         return "", ""
 
-    command = parts[0].lower()
+    # Telegram may send /start@BotName
+    command = parts[0].lower().split("@", 1)[0]
     argument = parts[1] if len(parts) > 1 else ""
 
     return command, argument
+
 
 async def handle_status(
     chat_id: int,
@@ -649,11 +658,11 @@ async def handle_status(
 
     await send_message(
         chat_id,
-        "📊 PulseGrid Status\n\n"
-        f"Total jobs: {len(jobs)}\n"
-        f"🟡 Pending: {counts['PENDING']}\n"
-        f"🟢 Running: {counts['RUNNING']}\n"
-        f"⏸️ Paused: {counts['PAUSED']}\n"
-        f"✅ Completed: {counts['COMPLETED']}\n"
-        f"🛑 Stopped: {counts['STOPPED']}",
+        "PulseGrid status\n\n"
+        f"Total: {len(jobs)}\n"
+        f"Pending: {counts['PENDING']}\n"
+        f"Running: {counts['RUNNING']}\n"
+        f"Paused: {counts['PAUSED']}\n"
+        f"Completed: {counts['COMPLETED']}\n"
+        f"Stopped: {counts['STOPPED']}",
     )

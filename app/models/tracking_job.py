@@ -1,7 +1,7 @@
 from datetime import date, datetime
 
 from pydantic import Field
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import JSON, Date, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models import Base
@@ -15,6 +15,11 @@ class TrackingJob(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"),
         nullable=False,
+    )
+
+    movie_name: Mapped[str | None] = mapped_column(
+        String(200),
+        nullable=True,
     )
 
     target_name: Mapped[str] = mapped_column(
@@ -35,6 +40,11 @@ class TrackingJob(Base):
     theater: Mapped[str] = mapped_column(
         String(200),
         nullable=False,
+    )
+
+    theater_id: Mapped[int | None] = mapped_column(
+        ForeignKey("theaters.id"),
+        nullable=True,
     )
 
     target_date: Mapped[date] = mapped_column(
@@ -79,6 +89,11 @@ class TrackingJob(Base):
 
     last_checked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
+        nullable=True,
+    )
+
+    last_result_json: Mapped[dict | None] = mapped_column(
+        JSON,
         nullable=True,
     )
 

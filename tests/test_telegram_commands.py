@@ -142,12 +142,63 @@ def test_parse_track_command():
 
 
 
+def test_parse_track_command_compact_three_fields(monkeypatch):
+    from datetime import date
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands._today_ist",
+        lambda: date(2026, 9, 21),
+    )
+
+    result = parse_track_command("ET00514261 bookmyshow Hyderabad")
+
+    assert result.target_name == "ET00514261"
+    assert result.platform == "bookmyshow"
+    assert result.city == "Hyderabad"
+    assert result.theater == "Any"
+    assert result.target_date.isoformat() == "2026-09-21"
+    assert result.poll_interval_seconds == 60
+    assert result.start_at.hour == 0
+    assert result.end_at.hour == 23
+    assert result.end_at.minute == 59
+
+
+def test_parse_track_command_compact_with_theater_and_date():
+    result = parse_track_command(
+        "MV181196 district Hyderabad AMB 2026-09-22"
+    )
+
+    assert result.target_name == "MV181196"
+    assert result.platform == "district"
+    assert result.city == "Hyderabad"
+    assert result.theater == "AMB"
+    assert result.target_date.isoformat() == "2026-09-22"
+    assert result.poll_interval_seconds == 60
+
+
+def test_parse_track_command_compact_multiline_three_fields(monkeypatch):
+    from datetime import date
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands._today_ist",
+        lambda: date(2026, 9, 21),
+    )
+
+    result = parse_track_command(
+        "ET00514261\n"
+        "bookmyshow\n"
+        "Hyderabad"
+    )
+
+    assert result.theater == "Any"
+    assert result.target_date.isoformat() == "2026-09-21"
+
+
 def test_parse_track_command_rejects_wrong_field_count():
-    with pytest.raises(ValueError, match="Usage"):
+    with pytest.raises(ValueError, match="Create a tracking job"):
         parse_track_command(
             "Panja\n"
-            "BookMyShow\n"
-            "Hyderabad"
+            "BookMyShow"
         )
 
 
@@ -242,10 +293,68 @@ async def test_handle_track_creates_job(monkeypatch):
     assert len(sent_messages) == 1
 
     assert sent_messages[0]["chat_id"] == 123
-    assert "Tracking job #12 created" in sent_messages[0]["message"]
+    assert "Watching #12" in sent_messages[0]["message"]
     assert "Panja" in sent_messages[0]["message"]
     assert "bookmyshow" in sent_messages[0]["message"]
     assert "RUNNING" in sent_messages[0]["message"]
+
+
+@pytest.mark.asyncio
+async def test_handle_track_compact_creates_job(monkeypatch):
+    sent_messages = []
+    created = {}
+
+    async def fake_send_message(chat_id, message):
+        sent_messages.append(message)
+
+    def fake_create_tracking_job(db, user, job_data):
+        created["job_data"] = job_data
+        return type(
+            "FakeJob",
+            (),
+            {
+                "id": 7,
+                "target_name": job_data.target_name,
+                "platform": job_data.platform,
+                "city": job_data.city,
+                "theater": job_data.theater,
+                "target_date": job_data.target_date,
+                "start_at": job_data.start_at,
+                "end_at": job_data.end_at,
+                "poll_interval_seconds": job_data.poll_interval_seconds,
+                "status": "PENDING",
+            },
+        )()
+
+    def fake_change_job_status(db, job, new_status):
+        job.status = new_status
+        return job
+
+    monkeypatch.setattr(
+        "app.services.telegram_commands.send_message",
+        fake_send_message,
+    )
+    monkeypatch.setattr(
+        "app.services.telegram_commands.create_tracking_job",
+        fake_create_tracking_job,
+    )
+    monkeypatch.setattr(
+        "app.services.telegram_commands.change_job_status",
+        fake_change_job_status,
+    )
+
+    await handle_track(
+        chat_id=123,
+        db=object(),
+        user=object(),
+        argument="ET00514261 bookmyshow Hyderabad",
+    )
+
+    assert created["job_data"].theater == "Any"
+    assert created["job_data"].poll_interval_seconds == 60
+    assert "Watching #7" in sent_messages[0]
+    assert "RUNNING" in sent_messages[0]
+
 
 @pytest.mark.asyncio
 async def test_handle_track_without_argument(monkeypatch):
@@ -267,7 +376,8 @@ async def test_handle_track_without_argument(monkeypatch):
     )
 
     assert len(sent_messages) == 1
-    assert "Usage" in sent_messages[0]
+    assert "/track ET00514261 bookmyshow Hyderabad" in sent_messages[0]
+    assert "Defaults if omitted" in sent_messages[0]
 
 @pytest.mark.asyncio
 async def test_route_track_command(monkeypatch):
@@ -538,6 +648,14 @@ def test_parse_command_without_argument():
     assert command == "/jobs"
     assert argument == ""
 
+
+def test_parse_command_strips_bot_username():
+    command, argument = parse_command("/start@PulseGridBot")
+
+    assert command == "/start"
+    assert argument == ""
+
+
 def test_parse_command_with_argument():
     command, argument = parse_command("/job 12")
 
@@ -630,11 +748,11 @@ async def test_handle_status_for_user(monkeypatch):
 
     message = sent_messages[0]
 
-    assert "Total jobs: 4" in message
-    assert "🟢 Running: 2" in message
-    assert "⏸️ Paused: 1" in message
-    assert "✅ Completed: 1" in message
-    assert "🛑 Stopped: 0" in message
+    assert "Total: 4" in message
+    assert "Running: 2" in message
+    assert "Paused: 1" in message
+    assert "Completed: 1" in message
+    assert "Stopped: 0" in message
 
 @pytest.mark.asyncio
 async def test_route_status_command(monkeypatch):

@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     
     telegram_bot_token: str
 
+    enable_embedded_worker: bool = True
+    worker_poll_seconds: float = 15.0
+
     model_config = SettingsConfigDict(
         env_file=".env"
     )
