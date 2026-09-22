@@ -1,4 +1,3 @@
-Absolutely. Here is the **full PulseGrid architecture and roadmap**, from the very beginning to where we are now, including why we took each step and what we're doing next.
 
 # PulseGrid — Complete Architecture & Roadmap
 
@@ -1139,4 +1138,3 @@ and job APIs stay provider-agnostic.
 3. **Web UI Show Results & Session History**:
    - Detected showtimes and availability snapshots sent via Telegram are saved to PostgreSQL (`last_result_json`) and exposed via REST API (`GET /api/v1/jobs/{id}/results`).
    - Clicking any tracking job in the Web UI opens an interactive **Show Results Drawer / Modal** showing live detected showtimes, venue details, formats, and polling status.
-

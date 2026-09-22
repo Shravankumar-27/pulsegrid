@@ -1,172 +1,180 @@
 # PulseGrid
 
-Cloud-hosted movie-show availability monitor for India.
+Cloud-hosted movie-show availability monitoring system for India.
 
-Track BookMyShow showtimes and get Telegram alerts when matching
-sessions appear or change.
+Track **BookMyShow** and **District** (`district.in`) showtimes in real-time. Get instant **Telegram alerts** and view live showtimes directly in the **Web UI Ops Console** when matching sessions open or change.
 
-## What works (MVP)
+---
 
-- FastAPI jobs API + JWT auth
-- Telegram bot commands (`/track`, `/jobs`, `/pause`, `/resume`, …)
-- BookMyShow live retrieval (`curl_cffi` + Cloudflare session)
-- Continuous worker with session dedupe + Telegram notifications
-- Cities: Hyderabad, Mumbai, Bengaluru, Chennai, Delhi/NCR
-- Admin dashboard (login + job pause/resume/stop/delete)
+## 🚀 Key Features
 
-## Quick start
+- **Multi-Provider Support**: Live showtime tracking for both **BookMyShow** (`curl_cffi` TLS impersonation + Cloudflare session) and **District** (`district.in` Next.js SSR parser).
+- **Automatic Embedded Worker**: Background poller automatically starts on FastAPI server launch (`ENABLE_EMBEDDED_WORKER=true`), supporting seamless single-container cloud deployment.
+- **Indian Standard Time (IST) Standard**: All job schedules, polling logs, Telegram notifications, and UI displays default to **IST** (`Asia/Kolkata`, UTC+05:30).
+- **Web UI Ops Console & Show Results Modal**: Built with React + TypeScript + Vite. Click any job to view live detected showtimes, cinema names, formats (2D/IMAX), and availability status.
+- **Theater Management**: Match specific venues or select `Any` theater to monitor all venues across a city.
+- **Telegram Integration**: Webhook & polling bot handlers (`/track`, `/jobs`, `/pause`, `/resume`, `/stop`, `/start`).
+- **Supported Cities**: Hyderabad, Mumbai, Bengaluru, Chennai, Delhi/NCR, Gurgaon, and custom city slugs.
 
-### 1. Setup
+---
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-pip install -e .
-playwright install chromium
-copy .env.example .env
-# edit .env — DATABASE_URL, JWT_SECRET_KEY, TELEGRAM_BOT_TOKEN
+## 🛠️ Architecture Overview
+
+```text
+               User (Web UI / Telegram)
+                         │
+                         ▼
+                   FastAPI API Server
+                         │
+         ┌───────────────┴───────────────┐
+         │                               │
+  REST Endpoints                 Embedded Worker Loop
+  (/jobs, /watch, /results)       (Lifespan Task, 15s)
+         │                               │
+         └───────────────┬───────────────┘
+                         │
+                 PostgreSQL (Neon)
+                         │
+                 Provider Interface
+            ┌────────────┴────────────┐
+            │                         │
+     BookMyShowProvider        DistrictProvider
+     (curl_cffi + CF Jar)    (district.in SSR parser)
+            │                         │
+            └────────────┬────────────┘
+                         ▼
+             Normalized Session Results
+                         │
+         ┌───────────────┴───────────────┐
+         │                               │
+  Telegram Notification         Web UI Results Drawer
+  (New session alerts)          (Full showtimes history)
 ```
 
-### 2. Database
+---
+
+## ⚡ Quick Start
+
+### 1. Prerequisites & Installation
 
 ```powershell
+# Clone repository
+git clone https://github.com/your-username/pulsegrid.git
+cd pulsegrid
+
+# Create virtual environment
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+# Install backend dependencies
+pip install -r requirements.txt
+pip install -e .
+
+# Install Playwright browser engines (for Cloudflare session bootstrap)
+playwright install chromium
+
+# Environment configuration
+copy .env.example .env
+```
+
+Edit `.env` and set your credentials:
+```env
+DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/pulsegrid
+JWT_SECRET_KEY=your-secure-jwt-secret
+TELEGRAM_BOT_TOKEN=your-telegram-bot-token
+ENABLE_EMBEDDED_WORKER=true
+WORKER_POLL_SECONDS=15
+```
+
+### 2. Database Setup
+
+```powershell
+# Run Alembic migrations
 alembic upgrade head
+
+# Create initial admin user
 .\.venv\Scripts\python.exe scripts/create_admin.py
 ```
 
-### 3. Cloudflare session (once, then when cookies expire)
+### 3. Bootstrap Cloudflare Session (One-Time)
 
-Needs a visible browser window:
+BookMyShow requires a Cloudflare clearance cookie (`cf_clearance`). Run the stealth bootstrap script once (requires a display window):
 
 ```powershell
 .\.venv\Scripts\python.exe scripts/bootstrap_bms_session.py --city hyderabad
 ```
 
-### 4. Run API + worker
+### 4. Run Application & Web UI
 
-Terminal A — API / Telegram webhook:
-
+#### Option A: Production Mode (FastAPI serves bundled React Web UI + Embedded Worker)
 ```powershell
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
-```
-
-Point Telegram at your public URL (ngrok, etc.):
-
-```powershell
-.\.venv\Scripts\python.exe scripts/set_telegram_webhook.py
-```
-
-Terminal B — monitor loop:
-
-```powershell
-.\.venv\Scripts\python.exe scripts/run_worker.py
-```
-
-### 5. Create a job from Telegram
-
-```text
-/track
-ET00514261
-bookmyshow
-Hyderabad
-Any
-2026-09-21
-00:00
-23:59
-60
-```
-
-For BookMyShow, **Target must be the event code** (e.g. `ET00514261`), not the movie title.
-For District, Target is an `MV` code (e.g. `MV181196`) or a full District movie URL.
-Theater `Any` matches all venues.
-
-## Admin dashboard
-
-Vite + React ops console for listing and controlling jobs.
-
-Development (API on `:8000`, Vite on `:5173`):
-
-```powershell
-# terminal A
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
-
-# terminal B
-cd frontend
-npm install
-npm run dev
-```
-
-Open http://127.0.0.1:5173 — sign in with your Telegram user id.
-
-Production build (served by FastAPI at `/`):
-
-```powershell
+# Build React frontend
 cd frontend
 npm install
 npm run build
+cd ..
+
+# Start FastAPI server
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
+Open **http://127.0.0.1:8000/** to access the Web UI Ops Console.
 
-Then open http://127.0.0.1:8000/
+#### Option B: Development Mode (Vite Hot-Reload on `:5173`)
+```powershell
+# Terminal A — Backend API
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 
-## Docker
+# Terminal B — Frontend Dev Server
+cd frontend
+npm run dev
+```
+Open **http://127.0.0.1:5173/**.
+
+---
+
+## 📱 Telegram Integration
+
+1. Set your public Webhook URL (e.g. via ngrok or production domain):
+   ```powershell
+   .\.venv\Scripts\python.exe scripts/set_telegram_webhook.py
+   ```
+2. Start tracking a movie via Telegram chat:
+   ```text
+   /track
+   ET00514261
+   bookmyshow
+   Hyderabad
+   Any
+   2026-09-22
+   00:00
+   23:59
+   60
+   ```
+   *Note*: For **BookMyShow**, pass the Event Code (e.g., `ET00514261`). For **District**, pass the Movie Code (e.g., `MV181196`) or full District URL.
+
+---
+
+## 🐳 Docker Deployment
 
 ```powershell
-copy .env.example .env
-# set TELEGRAM_BOT_TOKEN and JWT_SECRET_KEY in .env
 docker compose up --build
 ```
-
 Services:
-- `db` — Postgres 16
-- `api` — FastAPI on `:8000` (runs migrations on start)
-- `worker` — continuous monitor loop
+- `db` — PostgreSQL 16
+- `api` — FastAPI REST API + Web UI on port `:8000` (auto-runs migrations)
+- `worker` — Standalone worker service (optional if embedded worker is enabled)
 
-Bootstrap CF cookies on the host (needs a display), then copy into the shared volume or mount `data/`:
+---
 
+## 🧪 Testing
+
+Run the comprehensive pytest suite (170 tests):
 ```powershell
-.\.venv\Scripts\python.exe scripts/bootstrap_bms_session.py
+.\.venv\Scripts\python.exe -m pytest
 ```
 
-## Smoke tests
+---
 
-Fetch showtimes only:
+## 📄 Documentation
 
-```powershell
-.\.venv\Scripts\python.exe scripts/fetch_bms_showtimes.py ET00514261 --language telugu
-```
-
-Provider + dedupe path (optional Telegram):
-
-```powershell
-.\.venv\Scripts\python.exe scripts/smoke_bms_monitor.py ET00514261 --theater Any
-.\.venv\Scripts\python.exe scripts/smoke_bms_monitor.py ET00514261 --notify --chat-id YOUR_CHAT_ID
-.\.venv\Scripts\python.exe scripts/smoke_district_monitor.py MV181196 --city Hyderabad
-```
-
-## Architecture
-
-Provider retrieval is isolated from the worker/core:
-
-```text
-Telegram / API
-      │
-      ▼
-TrackingJob (DB)
-      │
-      ▼
-Worker loop ──► BookMyShowProvider ──► CurlCffiTransport
-      │                                      │
-      │                               primary-dynamic
-      ▼
-Dedupe seen sessions → Telegram alert
-```
-
-See `project-architecture.md` for the full roadmap.
-
-## Tests
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest -q
-```
+For detailed architectural principles, provider normalization models, and technical decisions, see [project-architecture.md](project-architecture.md).
