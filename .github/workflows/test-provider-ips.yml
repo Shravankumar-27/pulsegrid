@@ -1,0 +1,46 @@
+name: test-provider-ips
+on: workflow_dispatch
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pip install curl_cffi
+
+      - name: Test District (no cookie needed)
+        run: |
+          python3 -c "
+          from curl_cffi import requests
+          url = 'https://www.district.in/movies/coolie-movie-tickets-in-hyderabad-MV181196'
+          r = requests.get(url, impersonate='chrome131')
+          print('STATUS:', r.status_code)
+          print('LEN:', len(r.text))
+          print('HAS_NEXT_DATA:', '__NEXT_DATA__' in r.text)
+          print(r.text[:800])
+          "
+
+      - name: Test BookMyShow (needs cf_clearance secret)
+        env:
+          CF_CLEARANCE: ${{ secrets.BMS_CF_CLEARANCE }}
+        run: |
+          python3 -c "
+          import os
+          from curl_cffi import requests
+          url = 'https://in.bookmyshow.com/api/movies-data/v5/showtimes-by-event/primary-dynamic'
+          params = {
+              'etCodes': 'ET00514261',
+              'dateCode': '20260922',
+              'regionCode': 'HYD',
+              'regionSlug': 'hyderabad',
+              'refEventCode': 'ET00514261',
+              'appCode': 'WEB',
+              'isDesktop': 'true',
+          }
+          headers = {
+              'Referer': 'https://in.bookmyshow.com/movies/hyderabad/buytickets/ET00514261/20260922',
+          }
+          cookies = {'cf_clearance': os.environ['CF_CLEARANCE']}
+          r = requests.get(url, params=params, headers=headers, cookies=cookies, impersonate='chrome131')
+          print('STATUS:', r.status_code)
+          print(r.text[:800])
+          "

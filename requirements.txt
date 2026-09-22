@@ -1,12 +1,15 @@
 fastapi
-uvicorn
+uvicorn[standard]
 curl_cffi
 playwright
 playwright-stealth
 httpx
 sqlalchemy
 psycopg[binary]
+pydantic
 pydantic-settings
+pyjwt
+python-dotenv
 alembic
 pytest
 pytest-asyncio
